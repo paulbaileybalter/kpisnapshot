@@ -294,7 +294,7 @@
     snapshot: null,   // { month, kpiDash: {month, rows}, productionPlan: {month, skus, totals}, savedAt }
     months: [],
     latestMonth: null, // the month GET /api/data returns by default — marked "(latest)" in the switcher
-    activePage: "kpi", // "kpi" | "production"
+    activePage: "quality", // "quality" | "utileff" | "production"
     skuSort: { key: "diff", dir: "desc" },
   };
 
@@ -303,64 +303,59 @@
   }
 
   function renderHero() {
-    const hero = $("#hero");
-    hero.innerHTML = "";
     const kpiRows = (state.snapshot.kpiDash && state.snapshot.kpiDash.rows) || [];
     const plan = state.snapshot.productionPlan;
 
     const attainmentRow = findKpi(kpiRows, "Plan Attainment");
-    const headline = document.createElement("div");
-    headline.className = "hero-headline";
+    let headlineHtml;
     if (attainmentRow) {
       const dir = KPI_DIRECTION["Plan Attainment"] || "higher";
       const g = goodness(dir, attainmentRow.varMonth);
       const n = attainmentRow.kpi;
-      headline.innerHTML = `
+      headlineHtml = `
         <div class="kicker">${state.snapshot.month || ""} · Plan attainment</div>
         <div class="big">${fmtKpiValue(attainmentRow.actualMonth, "%", n)}<small>vs ${fmtKpiValue(attainmentRow.budgetMonth, "%", n)} target</small></div>
         <span class="delta ${g === "bad" ? "bad" : "good"}">${fmtKpiDelta(attainmentRow.varMonth, "%", n)} vs target</span>
       `;
     } else if (plan && plan.totals) {
-      headline.innerHTML = `
+      headlineHtml = `
         <div class="kicker">${state.snapshot.month || ""} · Production attainment</div>
         <div class="big">${fmtPercent(plan.totals.attainment)}</div>
       `;
     } else {
-      headline.innerHTML = `<div class="kicker">${state.snapshot.month || ""}</div><div class="big">—</div>`;
+      headlineHtml = `<div class="kicker">${state.snapshot.month || ""}</div><div class="big">—</div>`;
     }
-    hero.appendChild(headline);
 
-    const stats = document.createElement("div");
-    stats.className = "hero-stats";
+    let statsHtml = "";
     HEADLINE_KPIS.filter((n) => n !== "Plan Attainment").forEach((name) => {
       const row = findKpi(kpiRows, name);
       if (!row) return;
       const dir = KPI_DIRECTION[name] || "higher";
       const g = goodness(dir, row.varMonth);
-      const stat = document.createElement("div");
-      stat.className = "hero-stat";
-      stat.innerHTML = `
-        <span class="k">${row.kpi}</span>
-        <span class="v">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</span>
-        <span class="chip ${g === "bad" ? "bad" : "good"}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
+      statsHtml += `
+        <div class="hero-stat">
+          <span class="k">${row.kpi}</span>
+          <span class="v">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</span>
+          <span class="chip ${g === "bad" ? "bad" : "good"}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
+        </div>
       `;
-      stats.appendChild(stat);
     });
     if (plan && plan.totals) {
-      const stat = document.createElement("div");
-      stat.className = "hero-stat";
       const diffGood = (plan.totals.diff || 0) >= 0;
-      stat.innerHTML = `
-        <span class="k">hL produced</span>
-        <span class="v">${fmtNumber(plan.totals.produced, 0)}<span class="u">hL</span></span>
-        <span class="chip ${diffGood ? "good" : "bad"}">${plan.totals.diff >= 0 ? "+" : "\u2212"}${fmtNumber(Math.abs(plan.totals.diff || 0), 0)} vs plan</span>
+      statsHtml += `
+        <div class="hero-stat">
+          <span class="k">hL produced</span>
+          <span class="v">${fmtNumber(plan.totals.produced, 0)}<span class="u">hL</span></span>
+          <span class="chip ${diffGood ? "good" : "bad"}">${plan.totals.diff >= 0 ? "+" : "\u2212"}${fmtNumber(Math.abs(plan.totals.diff || 0), 0)} vs plan</span>
+        </div>
       `;
-      stats.appendChild(stat);
     }
-    hero.appendChild(stats);
+
+    const fullHtml = `<div class="hero-headline">${headlineHtml}</div><div class="hero-stats">${statsHtml}</div>`;
+    $$(".hero").forEach((el) => { el.innerHTML = fullHtml; });
   }
 
-  function renderMetricRow(row) {
+  function renderMetricTile(row) {
     const direction = KPI_DIRECTION[row.kpi] || "higher";
     const gMonth = goodness(direction, row.varMonth);
     const badgeClass = gMonth === "flat" ? "flat" : gMonth;
@@ -373,20 +368,18 @@
     const fillClass = gMonth === "good" ? "good" : gMonth === "bad" ? "bad" : "";
 
     const el = document.createElement("div");
-    el.className = "metric-row";
+    el.className = "metric-tile";
     el.innerHTML = `
-      <div class="mr-top">
-        <span class="mr-name" title="${row.kpi}">${row.kpi}<span class="unit">${row.unit || ""}</span></span>
-        <span class="mr-right">
-          <span class="mr-actual">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</span>
-          <span class="mr-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
-        </span>
+      <div class="mt-top">
+        <span class="mt-name" title="${row.kpi}">${row.kpi}<span class="unit">${row.unit || ""}</span></span>
+        <span class="mt-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
       </div>
-      <div class="mr-bar">
+      <div class="mt-actual">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</div>
+      <div class="mt-bar">
         <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
         <div class="target" style="left:${targetPct}%"></div>
       </div>
-      <div class="mr-meta">
+      <div class="mt-meta">
         <span>target ${fmtKpiValue(row.budgetMonth, row.unit, row.kpi)}</span>
         <span>YTD ${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</span>
       </div>
@@ -402,17 +395,18 @@
     const kpiRows = (state.snapshot.kpiDash && state.snapshot.kpiDash.rows) || [];
     TYPE_ORDER.forEach((type) => {
       const section = $(`.category[data-type="${type}"]`);
-      const list = $(".metric-list", section);
+      if (!section) return;
+      const grid = $(".metric-tile-grid", section);
       const count = $(".count", section);
-      list.innerHTML = "";
+      grid.innerHTML = "";
       const rows = kpiRows.filter((r) => r.type === type);
-      count.textContent = rows.length ? `${rows.length}` : "";
+      count.textContent = rows.length ? `${rows.length} metrics` : "";
       if (!rows.length) {
         section.classList.add("hidden");
         return;
       }
       section.classList.remove("hidden");
-      rows.forEach((row) => list.appendChild(renderMetricRow(row)));
+      rows.forEach((row) => grid.appendChild(renderMetricTile(row)));
     });
   }
 
@@ -429,15 +423,40 @@
     $("#prodMonthLabel").textContent = plan.month || "";
 
     const t = plan.totals || {};
+
+    $("#prodGaugeWrap").innerHTML = buildGauge(t.attainment);
+
     const stats = $("#prodStats");
+    const diffGood = (t.diff || 0) >= 0;
     stats.innerHTML = `
-      <div class="prod-stat"><div class="k">hL planned</div><div class="v">${fmtNumber(t.planned, 0)}</div></div>
-      <div class="prod-stat"><div class="k">hL produced</div><div class="v">${fmtNumber(t.produced, 0)}</div></div>
-      <div class="prod-stat"><div class="k">Plan attainment</div><div class="v">${fmtPercent(t.attainment)}</div></div>
-      <div class="prod-stat"><div class="k">Variance</div><div class="v">${t.diff >= 0 ? "+" : "\u2212"}${fmtNumber(Math.abs(t.diff || 0), 0)} hL</div></div>
+      <div class="prod-stat"><div class="k">hL planned</div><div class="v">${fmtNumber(t.planned, 0)}<span class="u">hL</span></div></div>
+      <div class="prod-stat"><div class="k">hL produced</div><div class="v">${fmtNumber(t.produced, 0)}<span class="u">hL</span></div></div>
+      <div class="prod-stat"><div class="k">Variance vs plan</div><div class="v" style="color:${diffGood ? "var(--good)" : "var(--bad)"}">${diffGood ? "+" : "\u2212"}${fmtNumber(Math.abs(t.diff || 0), 0)}<span class="u">hL</span></div></div>
     `;
 
     renderSkuTable();
+  }
+
+  // Radial progress ring for overall plan attainment — the headline visual
+  // on the Production Plan page.
+  function buildGauge(pct) {
+    const size = 168, stroke = 14, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    const value = pct == null ? 0 : pct * 100;
+    const clamped = Math.max(0, Math.min(100, value));
+    const offset = c * (1 - clamped / 100);
+    const color = value >= 98 ? "var(--teal)" : "var(--orange)";
+    return `
+      <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="${stroke}"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+          stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}"
+          transform="rotate(-90 ${size / 2} ${size / 2})"/>
+      </svg>
+      <div class="prod-gauge-label">
+        <span class="v">${pct == null ? "—" : value.toFixed(1) + "%"}</span>
+        <span class="k">Plan attainment</span>
+      </div>
+    `;
   }
 
   function renderSkuTable() {
@@ -454,15 +473,31 @@
       return dir === "asc" ? av - bv : bv - av;
     });
 
+    // Scale every bar against the tallest attainment in the current set so
+    // the bars are visually comparable to each other, not just to 100%.
+    const maxAttainment = Math.max(1, ...skus.map((s) => s.attainment || 0)) * 1.08;
+
     const tbody = $("#skuTbody");
     tbody.innerHTML = sorted.map((s) => {
       const diffGood = (s.diff || 0) >= 0;
+      const pct = s.attainment == null ? 0 : s.attainment * 100;
+      const fillPct = Math.min(100, (Math.max(0, s.attainment || 0) / maxAttainment) * 100);
+      const targetPct = Math.min(100, (1 / maxAttainment) * 100);
+      const barGood = (s.attainment || 0) >= 1;
       return `
         <tr>
           <td>${s.sku}</td>
           <td class="num">${fmtNumber(s.planned, 1)}</td>
           <td class="num">${fmtNumber(s.produced, 1)}</td>
-          <td class="num">${fmtPercent(s.attainment)}</td>
+          <td>
+            <div class="sku-bar-cell">
+              <div class="sku-bar-track">
+                <div class="sku-bar-fill ${barGood ? "good" : "bad"}" style="width:${fillPct}%"></div>
+                <div class="sku-bar-target" style="left:${targetPct}%"></div>
+              </div>
+              <span class="sku-bar-label">${s.attainment == null ? "—" : pct.toFixed(0) + "%"}</span>
+            </div>
+          </td>
           <td class="num sku-diff ${diffGood ? "good" : "bad"}">${s.diff == null ? "—" : (diffGood ? "+" : "\u2212") + fmtNumber(Math.abs(s.diff), 1)}</td>
         </tr>
       `;
@@ -472,7 +507,8 @@
   function renderAll() {
     if (!state.snapshot) {
       $("#pageTabs").classList.add("hidden");
-      $("#page-kpi").classList.add("hidden");
+      $("#page-quality").classList.add("hidden");
+      $("#page-utileff").classList.add("hidden");
       $("#page-production").classList.add("hidden");
       $("#emptyState").classList.remove("hidden");
       $("#exportBtn").disabled = true;
@@ -493,13 +529,15 @@
     $("#footerMeta").textContent = savedAt ? `Last updated ${savedAt.toLocaleString()}` : "";
   }
 
+  const PAGE_IDS = { quality: "page-quality", utileff: "page-utileff", production: "page-production" };
+  const TAB_IDS = { quality: "tabQuality", utileff: "tabUtilEff", production: "tabProduction" };
+
   function showPage(page) {
     state.activePage = page;
-    const isKpi = page === "kpi";
-    $("#page-kpi").classList.toggle("hidden", !isKpi);
-    $("#page-production").classList.toggle("hidden", isKpi);
-    $("#tabKpi").classList.toggle("active", isKpi);
-    $("#tabProduction").classList.toggle("active", !isKpi);
+    Object.keys(PAGE_IDS).forEach((key) => {
+      $(`#${PAGE_IDS[key]}`).classList.toggle("hidden", key !== page);
+      $(`#${TAB_IDS[key]}`).classList.toggle("active", key === page);
+    });
   }
 
   function renderMonthSelect() {
@@ -856,7 +894,8 @@
     wireDropzone("#dzPlan", "#filePlan", handlePlanFile);
     wireSkuSort();
 
-    $("#tabKpi").addEventListener("click", () => showPage("kpi"));
+    $("#tabQuality").addEventListener("click", () => showPage("quality"));
+    $("#tabUtilEff").addEventListener("click", () => showPage("utileff"));
     $("#tabProduction").addEventListener("click", () => showPage("production"));
   }
 

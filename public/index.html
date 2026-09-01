@@ -79,9 +79,13 @@
 
     <!-- Page tabs -->
     <nav class="page-tabs hidden" id="pageTabs">
-      <button class="page-tab active" id="tabKpi" data-page="kpi">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M6 15l3-4 3 2 3-5 3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        KPI Snapshot
+      <button class="page-tab active" id="tabQuality" data-page="quality">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z" stroke-linejoin="round"/></svg>
+        Quality
+      </button>
+      <button class="page-tab" id="tabUtilEff" data-page="utileff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" stroke-linejoin="round"/></svg>
+        Utilities &amp; Efficiency
       </button>
       <button class="page-tab" id="tabProduction" data-page="production">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h12l-1 6a5 5 0 01-10 0L6 3z"/><path d="M8 21h8M12 15v6"/></svg>
@@ -89,41 +93,46 @@
       </button>
     </nav>
 
-    <!-- ============ PAGE 1: KPI Snapshot ============ -->
-    <div id="page-kpi" class="app-page hidden">
-      <section class="hero" id="hero"></section>
+    <!-- ============ PAGE 1: Quality ============ -->
+    <div id="page-quality" class="app-page hidden">
+      <section class="hero hero-instance"></section>
 
-      <div class="kpi-columns">
-        <section class="category" data-type="Quality">
-          <div class="category-head">
-            <span class="swatch" style="background:var(--purple)"></span>
-            <h2>Quality</h2>
-            <span class="count"></span>
-          </div>
-          <div class="metric-list"></div>
-        </section>
+      <section class="category category-solo" data-type="Quality">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--purple)"></span>
+          <h2>Quality</h2>
+          <span class="count"></span>
+        </div>
+        <div class="metric-tile-grid"></div>
+      </section>
+    </div>
 
-        <section class="category" data-type="Utilities">
+    <!-- ============ PAGE 2: Utilities & Efficiency ============ -->
+    <div id="page-utileff" class="app-page hidden">
+      <section class="hero hero-instance"></section>
+
+      <div class="stacked-categories">
+        <section class="category category-stacked" data-type="Utilities">
           <div class="category-head">
             <span class="swatch" style="background:var(--sky)"></span>
             <h2>Utilities</h2>
             <span class="count"></span>
           </div>
-          <div class="metric-list"></div>
+          <div class="metric-tile-grid"></div>
         </section>
 
-        <section class="category" data-type="Efficiency">
+        <section class="category category-stacked" data-type="Efficiency">
           <div class="category-head">
             <span class="swatch" style="background:var(--orange)"></span>
             <h2>Efficiency</h2>
             <span class="count"></span>
           </div>
-          <div class="metric-list"></div>
+          <div class="metric-tile-grid"></div>
         </section>
       </div>
     </div>
 
-    <!-- ============ PAGE 2: Production Plan ============ -->
+    <!-- ============ PAGE 3: Production Plan ============ -->
     <div id="page-production" class="app-page hidden">
       <div class="prod-empty hidden" id="prodEmpty">
         <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h12l-1 6a5 5 0 01-10 0L6 3z"/><path d="M8 21h8M12 15v6"/></svg>
@@ -131,15 +140,18 @@
         <button class="btn accent" id="prodEmptyUploadBtn">Update data</button>
       </div>
       <section class="production" id="production">
-        <div class="category-head">
+        <div class="category-head prod-page-head">
           <span class="swatch" style="background:var(--teal)"></span>
           <h2>Production plan attainment</h2>
           <span class="count" id="prodMonthLabel"></span>
         </div>
-        <div class="prod-stats" id="prodStats"></div>
-        <div class="prod-table-wrap">
+        <div class="prod-hero">
+          <div class="prod-gauge-wrap" id="prodGaugeWrap"></div>
+          <div class="prod-hero-stats" id="prodStats"></div>
+        </div>
+        <div class="prod-chart-wrap">
           <div class="prod-table-head">
-            <h3>By SKU</h3>
+            <h3>By SKU — produced vs planned</h3>
             <span class="sub" id="skuCount"></span>
           </div>
           <div class="sku-table-scroll">
@@ -149,7 +161,7 @@
                   <th data-key="sku">SKU</th>
                   <th class="num" data-key="planned">Planned (hL)</th>
                   <th class="num" data-key="produced">Produced (hL)</th>
-                  <th class="num" data-key="attainment">Attainment</th>
+                  <th data-key="attainment">Attainment</th>
                   <th class="num" data-key="diff">Diff (hL)</th>
                 </tr>
               </thead>
