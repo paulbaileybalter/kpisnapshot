@@ -1,0 +1,11 @@
+name = "kpisnapshot"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "."
+
+# Local dev only — in the Cloudflare dashboard the binding is added under
+# Workers & Pages → your project → Settings → Functions → KV namespace bindings.
+# Run `npx wrangler kv namespace create SNAPSHOT_KV` once, then paste the id below
+# and into the dashboard binding (name it SNAPSHOT_KV in both places).
+[[kv_namespaces]]
+binding = "SNAPSHOT_KV"
+id = "e300e78fbc8147b4a1d0381fcfab097f"
