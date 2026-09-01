@@ -294,6 +294,7 @@
     snapshot: null,   // { month, kpiDash: {month, rows}, productionPlan: {month, skus, totals}, savedAt }
     months: [],
     latestMonth: null, // the month GET /api/data returns by default — marked "(latest)" in the switcher
+    activePage: "kpi", // "kpi" | "production"
     skuSort: { key: "diff", dir: "desc" },
   };
 
@@ -308,31 +309,29 @@
     const plan = state.snapshot.productionPlan;
 
     const attainmentRow = findKpi(kpiRows, "Plan Attainment");
-    const heroMain = document.createElement("div");
-    heroMain.className = "hero-main";
+    const headline = document.createElement("div");
+    headline.className = "hero-headline";
     if (attainmentRow) {
       const dir = KPI_DIRECTION["Plan Attainment"] || "higher";
       const g = goodness(dir, attainmentRow.varMonth);
       const n = attainmentRow.kpi;
-      heroMain.innerHTML = `
+      headline.innerHTML = `
         <div class="kicker">${state.snapshot.month || ""} · Plan attainment</div>
         <div class="big">${fmtKpiValue(attainmentRow.actualMonth, "%", n)}<small>vs ${fmtKpiValue(attainmentRow.budgetMonth, "%", n)} target</small></div>
-        <div class="label">Year to date: ${fmtKpiValue(attainmentRow.actualYtd, "%", n)}</div>
-        <span class="delta ${g === "bad" ? "bad" : "good"}">${fmtKpiDelta(attainmentRow.varMonth, "%", n)} vs target this month</span>
+        <span class="delta ${g === "bad" ? "bad" : "good"}">${fmtKpiDelta(attainmentRow.varMonth, "%", n)} vs target</span>
       `;
     } else if (plan && plan.totals) {
-      heroMain.innerHTML = `
+      headline.innerHTML = `
         <div class="kicker">${state.snapshot.month || ""} · Production attainment</div>
         <div class="big">${fmtPercent(plan.totals.attainment)}</div>
-        <div class="label">${fmtNumber(plan.totals.produced, 0)} hL produced of ${fmtNumber(plan.totals.planned, 0)} hL planned</div>
       `;
     } else {
-      heroMain.innerHTML = `<div class="kicker">${state.snapshot.month || ""}</div><div class="big">—</div><div class="label">No plan attainment figure found yet</div>`;
+      headline.innerHTML = `<div class="kicker">${state.snapshot.month || ""}</div><div class="big">—</div>`;
     }
-    hero.appendChild(heroMain);
+    hero.appendChild(headline);
 
-    const grid = document.createElement("div");
-    grid.className = "hero-grid";
+    const stats = document.createElement("div");
+    stats.className = "hero-stats";
     HEADLINE_KPIS.filter((n) => n !== "Plan Attainment").forEach((name) => {
       const row = findKpi(kpiRows, name);
       if (!row) return;
@@ -345,7 +344,7 @@
         <span class="v">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</span>
         <span class="chip ${g === "bad" ? "bad" : "good"}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
       `;
-      grid.appendChild(stat);
+      stats.appendChild(stat);
     });
     if (plan && plan.totals) {
       const stat = document.createElement("div");
@@ -354,55 +353,45 @@
       stat.innerHTML = `
         <span class="k">hL produced</span>
         <span class="v">${fmtNumber(plan.totals.produced, 0)}<span class="u">hL</span></span>
-        <span class="chip ${diffGood ? "good" : "bad"}">${plan.totals.diff >= 0 ? "+" : "\u2212"}${fmtNumber(Math.abs(plan.totals.diff || 0), 0)} hL vs plan</span>
+        <span class="chip ${diffGood ? "good" : "bad"}">${plan.totals.diff >= 0 ? "+" : "\u2212"}${fmtNumber(Math.abs(plan.totals.diff || 0), 0)} vs plan</span>
       `;
-      grid.appendChild(stat);
+      stats.appendChild(stat);
     }
-    hero.appendChild(grid);
+    hero.appendChild(stats);
   }
 
-  function renderMetricCard(row) {
+  function renderMetricRow(row) {
     const direction = KPI_DIRECTION[row.kpi] || "higher";
     const gMonth = goodness(direction, row.varMonth);
-    const gYtd = goodness(direction, row.varYtd);
     const badgeClass = gMonth === "flat" ? "flat" : gMonth;
 
-    const card = document.createElement("div");
-    card.className = "metric-card";
-    card.innerHTML = `
-      <div class="mc-top">
-        <div>
-          <div class="mc-name">${row.kpi}</div>
-          <div class="mc-unit">${row.unit || ""}</div>
-        </div>
-        <span class="mc-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
-      </div>
-      ${periodBlock("This month", row.budgetMonth, row.actualMonth, row.unit, gMonth, row.kpi)}
-      ${periodBlock("Year to date", row.budgetYtd, row.actualYtd, row.unit, gYtd, row.kpi)}
-    `;
-    return card;
-  }
-
-  function periodBlock(label, budget, actual, unit, g, kpiName) {
-    const b = budget == null ? 0 : scaleForBar(budget, unit, kpiName);
-    const a = actual == null ? 0 : scaleForBar(actual, unit, kpiName);
+    const b = row.budgetMonth == null ? 0 : scaleForBar(row.budgetMonth, row.unit, row.kpi);
+    const a = row.actualMonth == null ? 0 : scaleForBar(row.actualMonth, row.unit, row.kpi);
     const max = Math.max(Math.abs(b), Math.abs(a), 1) * 1.15;
     const fillPct = Math.min(100, (Math.abs(a) / max) * 100);
     const targetPct = Math.min(100, (Math.abs(b) / max) * 100);
-    const fillClass = g === "good" ? "good" : g === "bad" ? "bad" : "";
-    return `
-      <div class="mc-period">
-        <div class="pl"><span>${label}</span></div>
-        <div class="mc-bar">
-          <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
-          <div class="target" style="left:${targetPct}%"></div>
-        </div>
-        <div class="mc-vals">
-          <span class="actual">${fmtKpiValue(actual, unit, kpiName)}</span>
-          <span class="budget">target ${fmtKpiValue(budget, unit, kpiName)}</span>
-        </div>
+    const fillClass = gMonth === "good" ? "good" : gMonth === "bad" ? "bad" : "";
+
+    const el = document.createElement("div");
+    el.className = "metric-row";
+    el.innerHTML = `
+      <div class="mr-top">
+        <span class="mr-name" title="${row.kpi}">${row.kpi}<span class="unit">${row.unit || ""}</span></span>
+        <span class="mr-right">
+          <span class="mr-actual">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</span>
+          <span class="mr-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
+        </span>
+      </div>
+      <div class="mr-bar">
+        <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
+        <div class="target" style="left:${targetPct}%"></div>
+      </div>
+      <div class="mr-meta">
+        <span>target ${fmtKpiValue(row.budgetMonth, row.unit, row.kpi)}</span>
+        <span>YTD ${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</span>
       </div>
     `;
+    return el;
   }
 
   function scaleForBar(v, unit, kpiName) {
@@ -413,17 +402,17 @@
     const kpiRows = (state.snapshot.kpiDash && state.snapshot.kpiDash.rows) || [];
     TYPE_ORDER.forEach((type) => {
       const section = $(`.category[data-type="${type}"]`);
-      const grid = $(".metric-grid", section);
+      const list = $(".metric-list", section);
       const count = $(".count", section);
-      grid.innerHTML = "";
+      list.innerHTML = "";
       const rows = kpiRows.filter((r) => r.type === type);
-      count.textContent = rows.length ? `${rows.length} metrics` : "";
+      count.textContent = rows.length ? `${rows.length}` : "";
       if (!rows.length) {
         section.classList.add("hidden");
         return;
       }
       section.classList.remove("hidden");
-      rows.forEach((row) => grid.appendChild(renderMetricCard(row)));
+      rows.forEach((row) => list.appendChild(renderMetricRow(row)));
     });
   }
 
@@ -432,9 +421,11 @@
     const section = $("#production");
     if (!plan) {
       section.classList.add("hidden");
+      $("#prodEmpty").classList.remove("hidden");
       return;
     }
     section.classList.remove("hidden");
+    $("#prodEmpty").classList.add("hidden");
     $("#prodMonthLabel").textContent = plan.month || "";
 
     const t = plan.totals || {};
@@ -480,15 +471,18 @@
 
   function renderAll() {
     if (!state.snapshot) {
-      $("#dashboard").classList.add("hidden");
+      $("#pageTabs").classList.add("hidden");
+      $("#page-kpi").classList.add("hidden");
+      $("#page-production").classList.add("hidden");
       $("#emptyState").classList.remove("hidden");
       $("#exportBtn").disabled = true;
       $("#savedMeta").textContent = "";
       return;
     }
     $("#emptyState").classList.add("hidden");
-    $("#dashboard").classList.remove("hidden");
+    $("#pageTabs").classList.remove("hidden");
     $("#exportBtn").disabled = false;
+    showPage(state.activePage);
 
     renderHero();
     renderCategories();
@@ -497,6 +491,15 @@
     const savedAt = state.snapshot.savedAt ? new Date(state.snapshot.savedAt) : null;
     $("#savedMeta").textContent = savedAt ? `saved ${savedAt.toLocaleDateString()} ${savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
     $("#footerMeta").textContent = savedAt ? `Last updated ${savedAt.toLocaleString()}` : "";
+  }
+
+  function showPage(page) {
+    state.activePage = page;
+    const isKpi = page === "kpi";
+    $("#page-kpi").classList.toggle("hidden", !isKpi);
+    $("#page-production").classList.toggle("hidden", isKpi);
+    $("#tabKpi").classList.toggle("active", isKpi);
+    $("#tabProduction").classList.toggle("active", !isKpi);
   }
 
   function renderMonthSelect() {
@@ -838,6 +841,7 @@
     $("#exportBtn").addEventListener("click", exportCsv);
     $("#openUploadBtn").addEventListener("click", openUploadModal);
     $("#emptyUploadBtn").addEventListener("click", openUploadModal);
+    $("#prodEmptyUploadBtn").addEventListener("click", openUploadModal);
     $("#closeModalBtn").addEventListener("click", closeUploadModal);
     $("#cancelUploadBtn").addEventListener("click", closeUploadModal);
     $("#uploadModal").addEventListener("click", (e) => { if (e.target.id === "uploadModal") closeUploadModal(); });
@@ -851,6 +855,9 @@
     wireDropzone("#dzKpi", "#fileKpi", handleKpiFile);
     wireDropzone("#dzPlan", "#filePlan", handlePlanFile);
     wireSkuSort();
+
+    $("#tabKpi").addEventListener("click", () => showPage("kpi"));
+    $("#tabProduction").addEventListener("click", () => showPage("production"));
   }
 
   document.addEventListener("DOMContentLoaded", boot);
