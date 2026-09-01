@@ -1,4 +1,4 @@
-# KPIsnapshot — Balter Brew KPI Dashboard
+# KPI Snapshot — Balter Brewing
 
 A password-protected, team-shared dashboard for Balter Brewing's monthly **KPI Calculator**
 (`KPI - Dash` tab) and **Production Plan Attainment** workbooks. Drop the two `.xlsx`

@@ -293,6 +293,7 @@
   const state = {
     snapshot: null,   // { month, kpiDash: {month, rows}, productionPlan: {month, skus, totals}, savedAt }
     months: [],
+    latestMonth: null, // the month GET /api/data returns by default — marked "(latest)" in the switcher
     skuSort: { key: "diff", dir: "desc" },
   };
 
@@ -507,10 +508,20 @@
       sel.appendChild(opt);
       return;
     }
-    state.months.forEach((m) => {
+    // Most recent month first, regardless of the order they happened to be
+    // uploaded in. Falls back to alphabetical for month names outside the
+    // standard Jan–Dec list (shouldn't normally happen).
+    const sorted = [...state.months].sort((a, b) => {
+      const ai = MONTH_FULL_LIST.indexOf(a);
+      const bi = MONTH_FULL_LIST.indexOf(b);
+      if (ai === -1 || bi === -1) return a.localeCompare(b);
+      return bi - ai;
+    });
+    const latest = state.months.includes(state.latestMonth) ? state.latestMonth : sorted[0];
+    sorted.forEach((m) => {
       const opt = document.createElement("option");
       opt.value = m;
-      opt.textContent = m;
+      opt.textContent = m === latest ? `${m} (latest)` : m;
       if (state.snapshot && state.snapshot.month === m) opt.selected = true;
       sel.appendChild(opt);
     });
@@ -526,6 +537,7 @@
       const data = await res.json();
       state.months = data.months || [];
       state.snapshot = data.snapshot || null;
+      state.latestMonth = data.snapshot ? data.snapshot.month : null;
       renderMonthSelect();
       renderAll();
     } catch {
@@ -737,6 +749,7 @@
 
       const snapshot = await saveSnapshot(payload);
       state.snapshot = snapshot;
+      state.latestMonth = month;
       if (!state.months.includes(month)) state.months.push(month);
       renderMonthSelect();
       renderAll();

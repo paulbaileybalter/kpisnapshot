@@ -80,9 +80,19 @@ header{
 .month-badge{
   display:flex; align-items:center; gap:8px; padding:7px 12px;
   border:1.5px solid var(--line); border-radius:999px; background:#fff;
-  font-size:12.5px;
+  font-size:12.5px; transition:border-color .15s;
 }
-.month-badge select{border:none; background:transparent; font-weight:700; font-family:var(--font-display); font-size:13px; color:var(--ink); cursor:pointer;}
+.month-badge:has(select:hover), .month-badge:has(select:focus-visible){border-color:var(--purple);}
+.month-badge-label{font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);}
+.month-badge select{
+  border:none; background:transparent; font-weight:700; font-family:var(--font-display);
+  font-size:13px; color:var(--ink); cursor:pointer;
+  appearance:none; -webkit-appearance:none;
+  padding-right:16px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230B0B0C' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right center; background-size:12px;
+}
+.month-badge select:focus-visible{outline:2px solid var(--purple); outline-offset:2px; border-radius:4px;}
 .month-badge .dot{width:7px; height:7px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px rgba(71,215,172,.22); flex:0 0 auto;}
 .month-badge .saved{font-family:var(--font-mono); font-size:10.5px; color:var(--muted);}
 

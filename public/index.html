@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brew KPI Dashboard — Balter Brewing</title>
+<title>KPI Snapshot — Balter Brewing</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#47D7AC">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="KPI Dashboard">
+<meta name="apple-mobile-web-app-title" content="KPI Snapshot">
 <meta name="description" content="Monthly KPI and production plan attainment dashboard for Balter Brewing.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,7 +25,7 @@
 <div class="gate" id="gate">
   <div class="gate-card">
     <div class="logo"><img src="icon-192.png" alt=""></div>
-    <h2>Brew KPI Dashboard</h2>
+    <h2>KPI Snapshot</h2>
     <p>Shared monthly KPI and production plan attainment view for the Balter team. Enter the team password to open it.</p>
     <form class="gate-form" id="gateForm" autocomplete="off">
       <input type="password" id="gatePassword" placeholder="Password" autocomplete="current-password" required>
@@ -44,11 +44,12 @@
       <div class="logo"><img src="icon-192.png" alt="Balter Brewing"></div>
       <div class="brand">
         <span class="kicker">Balter Brewing</span>
-        <h1>Brew KPI Dashboard</h1>
+        <h1>KPI Snapshot</h1>
       </div>
 
       <div class="month-badge">
         <span class="dot" id="monthDot"></span>
+        <label class="month-badge-label" for="monthSelect">Month</label>
         <select id="monthSelect" title="Switch month"></select>
         <span class="saved" id="savedMeta"></span>
       </div>
@@ -140,7 +141,7 @@
     </div>
 
     <footer>
-      <span class="f-note">Balter Brewing · Brew KPI Dashboard</span>
+      <span class="f-note">Balter Brewing · KPI Snapshot</span>
       <span class="f-note" id="footerMeta"></span>
     </footer>
   </div>

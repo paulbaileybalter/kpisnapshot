@@ -1,6 +1,6 @@
 {
-  "name": "Balter Brew KPI Dashboard",
-  "short_name": "KPI Dashboard",
+  "name": "Balter KPI Snapshot",
+  "short_name": "KPI Snapshot",
   "description": "Monthly KPI and production plan attainment dashboard for Balter Brewing.",
   "start_url": "/",
   "display": "standalone",
