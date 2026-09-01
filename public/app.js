@@ -358,14 +358,8 @@
   function renderMetricTile(row) {
     const direction = KPI_DIRECTION[row.kpi] || "higher";
     const gMonth = goodness(direction, row.varMonth);
+    const gYtd = goodness(direction, row.varYtd);
     const badgeClass = gMonth === "flat" ? "flat" : gMonth;
-
-    const b = row.budgetMonth == null ? 0 : scaleForBar(row.budgetMonth, row.unit, row.kpi);
-    const a = row.actualMonth == null ? 0 : scaleForBar(row.actualMonth, row.unit, row.kpi);
-    const max = Math.max(Math.abs(b), Math.abs(a), 1) * 1.15;
-    const fillPct = Math.min(100, (Math.abs(a) / max) * 100);
-    const targetPct = Math.min(100, (Math.abs(b) / max) * 100);
-    const fillClass = gMonth === "good" ? "good" : gMonth === "bad" ? "bad" : "";
 
     const el = document.createElement("div");
     el.className = "metric-tile";
@@ -374,17 +368,30 @@
         <span class="mt-name" title="${row.kpi}">${row.kpi}<span class="unit">${row.unit || ""}</span></span>
         <span class="mt-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
       </div>
-      <div class="mt-actual">${fmtKpiValue(row.actualMonth, row.unit, row.kpi)}</div>
-      <div class="mt-bar">
-        <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
-        <div class="target" style="left:${targetPct}%"></div>
-      </div>
-      <div class="mt-meta">
-        <span>target ${fmtKpiValue(row.budgetMonth, row.unit, row.kpi)}</span>
-        <span>YTD ${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</span>
-      </div>
+      ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
+      ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
     `;
     return el;
+  }
+
+  function renderTilePeriod(label, budget, actual, unit, kpiName, g) {
+    const b = budget == null ? 0 : scaleForBar(budget, unit, kpiName);
+    const a = actual == null ? 0 : scaleForBar(actual, unit, kpiName);
+    const max = Math.max(Math.abs(b), Math.abs(a), 1) * 1.15;
+    const fillPct = Math.min(100, (Math.abs(a) / max) * 100);
+    const targetPct = Math.min(100, (Math.abs(b) / max) * 100);
+    const fillClass = g === "good" ? "good" : g === "bad" ? "bad" : "";
+    return `
+      <div class="mt-period">
+        <div class="mt-period-head">${label}</div>
+        <div class="mt-actual">${fmtKpiValue(actual, unit, kpiName)}</div>
+        <div class="mt-bar">
+          <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
+          <div class="target" style="left:${targetPct}%"></div>
+        </div>
+        <div class="mt-meta">target ${fmtKpiValue(budget, unit, kpiName)}</div>
+      </div>
+    `;
   }
 
   function scaleForBar(v, unit, kpiName) {
@@ -420,41 +427,57 @@
     }
     section.classList.remove("hidden");
     $("#prodEmpty").classList.add("hidden");
-    $("#prodMonthLabel").textContent = plan.month || "";
 
     const t = plan.totals || {};
-
-    $("#prodGaugeWrap").innerHTML = buildGauge(t.attainment);
-
-    const stats = $("#prodStats");
+    const value = t.attainment == null ? null : t.attainment * 100;
     const diffGood = (t.diff || 0) >= 0;
-    stats.innerHTML = `
-      <div class="prod-stat"><div class="k">hL planned</div><div class="v">${fmtNumber(t.planned, 0)}<span class="u">hL</span></div></div>
-      <div class="prod-stat"><div class="k">hL produced</div><div class="v">${fmtNumber(t.produced, 0)}<span class="u">hL</span></div></div>
-      <div class="prod-stat"><div class="k">Variance vs plan</div><div class="v" style="color:${diffGood ? "var(--good)" : "var(--bad)"}">${diffGood ? "+" : "\u2212"}${fmtNumber(Math.abs(t.diff || 0), 0)}<span class="u">hL</span></div></div>
+
+    $("#prodHero").innerHTML = `
+      <div class="hero-headline prod-headline">
+        ${buildMiniGauge(t.attainment)}
+        <div class="prod-headline-text">
+          <div class="kicker">${plan.month || ""} · Plan attainment</div>
+          <div class="big">${value == null ? "—" : value.toFixed(1) + "%"}</div>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="k">hL planned</span>
+          <span class="v">${fmtNumber(t.planned, 0)}<span class="u">hL</span></span>
+        </div>
+        <div class="hero-stat">
+          <span class="k">hL produced</span>
+          <span class="v">${fmtNumber(t.produced, 0)}<span class="u">hL</span></span>
+        </div>
+        <div class="hero-stat">
+          <span class="k">Variance vs plan</span>
+          <span class="v">${diffGood ? "+" : "\u2212"}${fmtNumber(Math.abs(t.diff || 0), 0)}<span class="u">hL</span></span>
+          <span class="chip ${diffGood ? "good" : "bad"}">${diffGood ? "on plan" : "behind plan"}</span>
+        </div>
+      </div>
     `;
 
     renderSkuTable();
   }
 
-  // Radial progress ring for overall plan attainment — the headline visual
-  // on the Production Plan page.
-  function buildGauge(pct) {
-    const size = 168, stroke = 14, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  // Small radial progress ring embedded in the production hero's headline —
+  // sized to sit inline with the kicker/big text so the bar stays the same
+  // height as the Quality / Utilities & Efficiency hero.
+  function buildMiniGauge(pct) {
+    const size = 60, stroke = 8, r = (size - stroke) / 2, c = 2 * Math.PI * r;
     const value = pct == null ? 0 : pct * 100;
     const clamped = Math.max(0, Math.min(100, value));
     const offset = c * (1 - clamped / 100);
     const color = value >= 98 ? "var(--teal)" : "var(--orange)";
     return `
-      <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
-        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="${stroke}"/>
-        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
-          stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}"
-          transform="rotate(-90 ${size / 2} ${size / 2})"/>
-      </svg>
-      <div class="prod-gauge-label">
-        <span class="v">${pct == null ? "—" : value.toFixed(1) + "%"}</span>
-        <span class="k">Plan attainment</span>
+      <div class="mini-gauge">
+        <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+          <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="${stroke}"/>
+          <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+            stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}"
+            transform="rotate(-90 ${size / 2} ${size / 2})"/>
+        </svg>
+        <span class="mini-gauge-label">${pct == null ? "—" : Math.round(value) + "%"}</span>
       </div>
     `;
   }

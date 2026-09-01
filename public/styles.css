@@ -222,7 +222,7 @@ header{
 
 .category-head{
   flex:0 0 auto; display:flex; align-items:baseline; gap:8px;
-  padding:9px 16px; border-bottom:1px solid var(--line); background:var(--wash);
+  padding:7px 16px; border-bottom:1px solid var(--line); background:var(--wash);
 }
 .category-head .swatch{width:10px; height:10px; border-radius:3px; flex:0 0 auto;}
 .category-head h2{font-size:14.5px;}
@@ -230,13 +230,13 @@ header{
 
 /* ---------- Metric tiles (roomier now that pages hold fewer metrics) ---------- */
 .metric-tile-grid{
-  flex:1 1 auto; min-height:0; overflow-y:auto; padding:14px;
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(228px, 1fr)); gap:12px; align-content:start;
+  flex:1 1 auto; min-height:0; overflow-y:auto; padding:12px;
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(215px, 1fr)); gap:8px; align-content:start;
 }
 .category-stacked .metric-tile-grid{flex:none; overflow:visible;}
 .metric-tile{
-  background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:11px 13px;
-  display:flex; flex-direction:column; gap:6px;
+  background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:8px 12px;
+  display:flex; flex-direction:column; gap:3px;
 }
 .mt-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
 .mt-name{
@@ -248,13 +248,15 @@ header{
 .mt-badge.good{background:var(--good-bg); color:var(--good);}
 .mt-badge.bad{background:var(--bad-bg); color:var(--bad);}
 .mt-badge.flat{background:var(--wash); color:var(--muted); border:1px solid var(--line);}
-.mt-actual{font-family:var(--font-display); font-size:19px; font-weight:700;}
-.mt-bar{position:relative; height:6px; border-radius:4px; background:var(--wash); border:1px solid var(--line); margin-top:1px;}
+.mt-actual{font-family:var(--font-display); font-size:14px; font-weight:700;}
+.mt-period{margin-top:3px;}
+.mt-period-head{font-family:var(--font-mono); font-size:9px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);}
+.mt-bar{position:relative; height:5px; border-radius:4px; background:var(--wash); border:1px solid var(--line); margin-top:1px;}
 .mt-bar .fill{position:absolute; top:0; left:0; bottom:0; border-radius:4px; background:var(--sky);}
 .mt-bar .fill.good{background:var(--teal);}
 .mt-bar .fill.bad{background:var(--orange);}
-.mt-bar .target{position:absolute; top:-2.5px; bottom:-2.5px; width:2px; background:var(--ink); border-radius:1px;}
-.mt-meta{display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--muted);}
+.mt-bar .target{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink); border-radius:1px;}
+.mt-meta{font-family:var(--font-mono); font-size:9.5px; color:var(--muted); margin-top:1px;}
 
 /* ---------- Production plan ---------- */
 .prod-empty{
@@ -266,28 +268,18 @@ header{
 .prod-empty p{font-size:13px; color:var(--muted); max-width:380px; margin:0 auto 16px; line-height:1.5;}
 #page-production{gap:0;}
 .production{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
-.prod-page-head{padding:0 0 10px; background:transparent; border:none;}
-.prod-page-head h2{font-size:16px;}
 
-.prod-hero{flex:0 0 auto; display:flex; gap:14px; margin-bottom:14px; align-items:stretch;}
-.prod-gauge-wrap{
-  flex:0 0 200px; position:relative; display:flex; align-items:center; justify-content:center;
-  background:linear-gradient(150deg, var(--ink) 0%, #201d29 55%, var(--purple) 160%);
-  border-radius:14px; padding:10px; overflow:hidden;
+/* Compact gauge embedded in the production page's hero-headline, sized to
+   sit inline with the kicker/big text rather than as its own big block —
+   keeps the bar the same height as the Quality / Utilities & Efficiency hero. */
+.hero-headline.prod-headline{flex-direction:row; align-items:center; gap:14px;}
+.mini-gauge{position:relative; width:60px; height:60px; flex:0 0 auto;}
+.mini-gauge svg{display:block;}
+.mini-gauge-label{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-size:11px; font-weight:700; color:#fff;
 }
-.prod-gauge-wrap::after{
-  content:""; position:absolute; left:-30px; bottom:-40px; width:140px; height:140px; border-radius:50%;
-  background:radial-gradient(circle, rgba(71,215,172,.28), transparent 70%);
-}
-.prod-gauge-label{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1;}
-.prod-gauge-label .v{font-family:var(--font-display); font-size:30px; font-weight:800; color:#fff;}
-.prod-gauge-label .k{font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.65); margin-top:2px;}
-.prod-hero-stats{flex:1 1 auto; display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;}
-@media (max-width:760px){ .prod-hero{flex-direction:column;} .prod-gauge-wrap{flex:0 0 140px;} .prod-hero-stats{grid-template-columns:1fr 1fr;} }
-.prod-stat{background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); display:flex; flex-direction:column; justify-content:center;}
-.prod-stat .k{font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);}
-.prod-stat .v{font-family:var(--font-display); font-size:24px; font-weight:700; margin-top:5px;}
-.prod-stat .v .u{font-size:13px; font-weight:600; color:var(--muted); margin-left:2px;}
+.prod-headline-text{display:flex; flex-direction:column; gap:2px;}
 
 .prod-chart-wrap{
   flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
@@ -382,7 +374,6 @@ footer .f-note{font-size:10px; color:var(--muted); font-family:var(--font-mono);
 @media (max-width:640px){
   .brand h1{font-size:16px;}
   .hero-headline .big{font-size:26px;}
-  .prod-hero-stats{grid-template-columns:1fr 1fr;}
 }
 
 /* Below this width the dense "single screen" layout doesn't have room to
@@ -400,6 +391,5 @@ footer .f-note{font-size:10px; color:var(--muted); font-family:var(--font-mono);
   .metric-tile-grid{overflow:visible;}
   .production{flex:none;}
   .prod-chart-wrap{flex:none;}
-  .prod-hero{flex-direction:column;}
   .sku-table-scroll{max-height:60vh;}
 }
