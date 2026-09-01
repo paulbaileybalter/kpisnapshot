@@ -1,0 +1,19 @@
+name = "kpisnapshot"
+main = "src/worker.js"
+compatibility_date = "2024-09-01"
+
+# Static site files (index.html, styles.css, app.js, icons, vendored
+# SheetJS) live in public/ and are served automatically for any request
+# that isn't handled by src/worker.js's /api/* routes.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# In the Cloudflare dashboard this binding is added under
+# Workers & Pages → your project → Settings → Bindings → Add → KV Namespace.
+# Run `npx wrangler kv namespace create SNAPSHOT_KV` once, then paste the id
+# below (for local dev) and into the dashboard binding (for production —
+# the name must be SNAPSHOT_KV in both places).
+[[kv_namespaces]]
+binding = "SNAPSHOT_KV"
+id = "e300e78fbc8147b4a1d0381fcfab097f"

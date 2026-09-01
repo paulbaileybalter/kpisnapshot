@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brew KPI Dashboard — Balter Brewing</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#47D7AC">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="KPI Dashboard">
+<meta name="description" content="Monthly KPI and production plan attainment dashboard for Balter Brewing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="bubbles" aria-hidden="true"></div>
+
+<!-- ================= PASSWORD GATE ================= -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="logo"><img src="icon-192.png" alt=""></div>
+    <h2>Brew KPI Dashboard</h2>
+    <p>Shared monthly KPI and production plan attainment view for the Balter team. Enter the team password to open it.</p>
+    <form class="gate-form" id="gateForm" autocomplete="off">
+      <input type="password" id="gatePassword" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit" class="btn primary" id="gateSubmit">
+        <span id="gateSubmitLabel">Unlock dashboard</span>
+      </button>
+      <div class="gate-error" id="gateError"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <div class="page">
+    <header>
+      <div class="logo"><img src="icon-192.png" alt="Balter Brewing"></div>
+      <div class="brand">
+        <span class="kicker">Balter Brewing</span>
+        <h1>Brew KPI Dashboard</h1>
+      </div>
+
+      <div class="month-badge">
+        <span class="dot" id="monthDot"></span>
+        <select id="monthSelect" title="Switch month"></select>
+        <span class="saved" id="savedMeta"></span>
+      </div>
+
+      <div class="header-spacer"></div>
+
+      <button class="btn ghost" id="openUploadBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        Update data
+      </button>
+      <button class="btn ghost" id="exportBtn" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 12h10M4 16h10M4 20h6"/></svg>
+        Export CSV
+      </button>
+      <button class="btn ghost" id="logoutBtn" title="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </header>
+
+    <!-- Empty state -->
+    <div class="empty-state hidden" id="emptyState">
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h12l-1 6a5 5 0 01-10 0L6 3z"/><path d="M8 21h8M12 15v6"/></svg>
+      <h2>No data on tap yet</h2>
+      <p>Drop in this month's KPI Calculator and Production Plan Attainment workbooks to pour the first dashboard.</p>
+      <button class="btn accent" id="emptyUploadBtn">Update data</button>
+    </div>
+
+    <!-- Dashboard content -->
+    <div id="dashboard" class="hidden">
+
+      <section class="hero" id="hero"></section>
+
+      <section class="category" data-type="Quality">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--purple)"></span>
+          <h2>Quality</h2>
+          <span class="count"></span>
+        </div>
+        <div class="metric-grid"></div>
+      </section>
+
+      <section class="category" data-type="Utilities">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--sky)"></span>
+          <h2>Utilities</h2>
+          <span class="count"></span>
+        </div>
+        <div class="metric-grid"></div>
+      </section>
+
+      <section class="category" data-type="Efficiency">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--orange)"></span>
+          <h2>Efficiency</h2>
+          <span class="count"></span>
+        </div>
+        <div class="metric-grid"></div>
+      </section>
+
+      <section class="production" id="production">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--teal)"></span>
+          <h2>Production plan attainment</h2>
+          <span class="count" id="prodMonthLabel"></span>
+        </div>
+        <div class="prod-stats" id="prodStats"></div>
+        <div class="prod-table-wrap">
+          <div class="prod-table-head">
+            <h3>By SKU</h3>
+            <span class="sub" id="skuCount"></span>
+          </div>
+          <div class="sku-table-scroll">
+            <table class="sku-table">
+              <thead>
+                <tr>
+                  <th data-key="sku">SKU</th>
+                  <th class="num" data-key="planned">Planned (hL)</th>
+                  <th class="num" data-key="produced">Produced (hL)</th>
+                  <th class="num" data-key="attainment">Attainment</th>
+                  <th class="num" data-key="diff">Diff (hL)</th>
+                </tr>
+              </thead>
+              <tbody id="skuTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <footer>
+      <span class="f-note">Balter Brewing · Brew KPI Dashboard</span>
+      <span class="f-note" id="footerMeta"></span>
+    </footer>
+  </div>
+</div>
+
+<!-- ================= UPLOAD MODAL ================= -->
+<div class="modal-overlay hidden" id="uploadModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2>Update data</h2>
+        <div class="sub">Drop this month's workbooks — parsed in your browser, saved for the whole team</div>
+      </div>
+      <button class="btn ghost small" id="closeModalBtn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <div class="dropzone" id="dzKpi">
+        <input type="file" id="fileKpi" accept=".xlsx">
+        <div class="dz-empty">
+          <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          <h4>KPI Calculator workbook</h4>
+          <p>Drag the "Balter Brewery KPI Calculator" .xlsx here — the KPI‑Dash tab is read automatically</p>
+        </div>
+        <div class="dz-file hidden">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+          <div>
+            <div class="name"></div>
+            <div class="meta"></div>
+          </div>
+          <button class="dz-clear" type="button">Remove</button>
+        </div>
+      </div>
+
+      <div class="dropzone" id="dzPlan">
+        <input type="file" id="filePlan" accept=".xlsx">
+        <div class="dz-empty">
+          <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          <h4>Production Plan Attainment workbook</h4>
+          <p>Drag the "2026 Production Plan Attainment" .xlsx here — the matching month tab is picked automatically</p>
+        </div>
+        <div class="dz-file hidden">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+          <div>
+            <div class="name"></div>
+            <div class="meta"></div>
+          </div>
+          <button class="dz-clear" type="button">Remove</button>
+        </div>
+      </div>
+
+      <div class="month-picker hidden" id="monthPickerRow">
+        <label for="planMonthSelect">Production plan month tab</label>
+        <select id="planMonthSelect"></select>
+      </div>
+
+      <div class="modal-note" id="modalNote">
+        Only .xlsx files are read, entirely in your browser — nothing is uploaded until you press Save. Saving replaces the shared dashboard for everyone.
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn ghost" id="cancelUploadBtn">Cancel</button>
+        <button class="btn primary" id="saveUploadBtn" disabled>
+          <span id="saveUploadLabel">Save to dashboard</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
