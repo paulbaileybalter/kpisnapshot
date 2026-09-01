@@ -118,11 +118,41 @@ this month's two workbooks via **Update data**.
    the matching tab in the Production Plan workbook is auto-selected — check the dropdown
    if it picked the wrong one before saving.
 4. Click **Save to dashboard**. Everyone with the password now sees this month's numbers.
+   Every other populated month tab in the Production Plan workbook is saved too, so past
+   months become browsable from the **Month** dropdown immediately — not just the current
+   one. (Empty future-month templates in the workbook, e.g. tabs for months that haven't
+   happened yet, are detected and skipped.)
 5. Use **Export CSV** any time to download a NetSuite-ready CSV of the currently displayed
    month.
 
-You can upload just one of the two files at a time if only one is ready — saving merges
-with whatever's already stored for that month rather than overwriting it.
+You can upload just one of the files at a time if only some are ready — saving merges with
+whatever's already stored for that month rather than overwriting it.
+
+### Browsing previous months
+
+The **Month** dropdown in the header lists every month that's been saved, most recent
+first. Production Plan history fills in automatically as above. KPI history is different:
+the KPI Calculator's `KPI - Dash` tab is a live snapshot that only ever shows whichever
+month is "current" in the Google Sheet — there's no way to pull last month's KPI figures
+out of this month's export. KPI history simply accumulates one month at a time as you
+upload each month going forward (or immediately, if you happen to have historical KPI
+Calculator exports sitting around from previous months).
+
+### Year-over-year comparison
+
+Drop last year's KPI Calculator export into the third ("optional") dropzone in the upload
+modal. It's saved independently of the current month, keyed by whatever month it actually
+represents (again, read from the workbook's own "current month" cell — so a December
+export saves as December, regardless of when you upload it). Whenever the month you're
+currently viewing has a matching prior-year month saved, a "vs [month] last year" bar
+appears on the Quality and Utilities & Efficiency hero, comparing Plan Attainment. If there's
+no matching prior-year month, the bar simply doesn't appear — nothing breaks, no error.
+
+### Bar / pie chart toggle
+
+The two small icon buttons in the header (next to **Update data**) switch every metric
+tile's visualization between horizontal bars and small pie charts. The choice is
+remembered per-browser (via `localStorage`), not per-account.
 
 ## Notes on a couple of judgment calls
 
@@ -142,6 +172,9 @@ with whatever's already stored for that month rather than overwriting it.
   (Month), Actual (Month), Variance (Month), Budget (YTD), Actual (YTD), Variance (YTD)`
   layout. If your NetSuite import template needs specific column names/order, that's all
   defined in one function — `buildCsv()` in `public/app.js`.
+- **Year-over-year comparison scope.** Only Plan Attainment is compared right now (it's
+  the headline metric on both KPI pages). Extending this to more metrics is a matter of
+  looping over more KPI names in `buildYoyStat()` in `public/app.js`.
 
 ## Local development
 
@@ -178,5 +211,6 @@ src/                            The Worker itself
   routes/session.js             GET — is this visitor currently logged in?
   routes/data.js                GET latest snapshot + month list · POST a new snapshot
   routes/data-month.js          GET one archived month's snapshot
+  routes/prioryear.js           GET/POST prior-year KPI rows, keyed by month, for YoY comparison
 wrangler.toml                   Worker config: entry point, assets directory, KV binding
 ```

@@ -97,6 +97,16 @@ header{
 .month-badge .dot{width:7px; height:7px; border-radius:50%; background:var(--teal); box-shadow:0 0 0 3px rgba(71,215,172,.22); flex:0 0 auto;}
 .month-badge .saved{font-family:var(--font-mono); font-size:10.5px; color:var(--muted);}
 
+.chart-toggle{display:flex; gap:2px; padding:3px; border:1.5px solid var(--line); border-radius:10px; background:#fff;}
+.chart-toggle-btn{
+  display:flex; align-items:center; justify-content:center; width:28px; height:26px;
+  border:none; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.chart-toggle-btn svg{width:15px; height:15px;}
+.chart-toggle-btn:hover{color:var(--ink);}
+.chart-toggle-btn.active{background:var(--ink); color:#fff;}
+
 .btn{
   display:inline-flex; align-items:center; gap:7px; padding:9px 14px;
   border-radius:10px; border:1.5px solid var(--line); background:#fff;
@@ -208,6 +218,18 @@ header{
 .hero-stat .chip{align-self:flex-start; font-size:10px; font-weight:700; padding:1px 7px; border-radius:999px; margin-top:1px;}
 .hero-stat .chip.good{background:rgba(71,215,172,.22); color:var(--teal);}
 .hero-stat .chip.bad{background:rgba(253,170,99,.24); color:var(--orange);}
+
+/* Year-over-year comparison chip: two tiny bars (this year / last year)
+   stacked inside a hero-stat, same footprint as the other hero stats. */
+.yoy-stat{gap:3px;}
+.yoy-bars{display:flex; flex-direction:column; gap:2px; margin-top:1px;}
+.yoy-bar-row{display:flex; align-items:center; gap:5px;}
+.yoy-bar-row .yl{font-family:var(--font-mono); font-size:8.5px; color:rgba(255,255,255,.55); width:26px; flex:0 0 auto;}
+.yoy-bar-track{position:relative; flex:1 1 auto; height:5px; border-radius:3px; background:rgba(255,255,255,.15); overflow:hidden;}
+.yoy-bar-fill{position:absolute; top:0; left:0; bottom:0; border-radius:3px;}
+.yoy-bar-fill.this-year{background:var(--teal);}
+.yoy-bar-fill.last-year{background:rgba(255,255,255,.45);}
+.yoy-bar-row .yv{font-family:var(--font-mono); font-size:9px; color:#fff; width:36px; flex:0 0 auto; text-align:right;}
 @media (max-width:900px){ .hero{flex-direction:column;} .hero-stats{flex-wrap:wrap;} .hero-stat{flex:1 1 40%; border-left:none; border-top:1px solid rgba(255,255,255,.14);} }
 
 /* ---------- Category pages (Quality solo / Utilities+Efficiency stacked) ---------- */
@@ -257,6 +279,13 @@ header{
 .mt-bar .fill.bad{background:var(--orange);}
 .mt-bar .target{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink); border-radius:1px;}
 .mt-meta{font-family:var(--font-mono); font-size:9.5px; color:var(--muted); margin-top:1px;}
+
+/* Pie-chart alternative to the .mt-bar row, toggled via the header control */
+.mt-period-pie{display:flex; align-items:center; gap:8px; margin-top:1px;}
+.mt-pie{width:26px; height:26px; border-radius:50%; flex:0 0 auto;}
+.mt-pie-vals{display:flex; flex-direction:column; gap:0; min-width:0;}
+.mt-pie-vals .mt-actual{font-size:13px;}
+.mt-pie-vals .mt-meta{margin-top:0;}
 
 /* ---------- Production plan ---------- */
 .prod-empty{
@@ -347,6 +376,10 @@ table.sku-table th:not(.num):not(:first-child){width:26%;}
 .month-picker{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
 .month-picker label{font-size:12px; color:var(--muted);}
 .month-picker select{padding:8px 10px; border-radius:9px; border:1.5px solid var(--line); font-size:13px; font-weight:600;}
+
+.modal-divider{position:relative; text-align:center; margin:2px 0;}
+.modal-divider::before{content:""; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--line);}
+.modal-divider span{position:relative; background:#fff; padding:0 10px; font-family:var(--font-mono); font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
 
 .modal-note{font-size:11.5px; color:var(--muted); line-height:1.55; background:var(--wash); border:1px solid var(--line); border-radius:10px; padding:10px 12px;}
 .modal-actions{display:flex; gap:10px; justify-content:flex-end; padding-top:4px;}

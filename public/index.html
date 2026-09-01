@@ -56,6 +56,15 @@
 
       <div class="header-spacer"></div>
 
+      <div class="chart-toggle" id="chartToggle" title="Switch chart style" role="group">
+        <button class="chart-toggle-btn active" id="chartStyleBar" data-style="bar" aria-label="Bar charts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V10M12 21V4M19 21v-7" stroke-linecap="round"/></svg>
+        </button>
+        <button class="chart-toggle-btn" id="chartStylePie" data-style="pie" aria-label="Pie charts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10l7.07 7.07A10 10 0 1112 2z" stroke-linejoin="round"/><path d="M12 2A10 10 0 0122 12h-10z"/></svg>
+        </button>
+      </div>
+
       <button class="btn ghost" id="openUploadBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
         Update data
@@ -207,7 +216,7 @@
         <div class="dz-empty">
           <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
           <h4>Production Plan Attainment workbook</h4>
-          <p>Drag the "2026 Production Plan Attainment" .xlsx here — the matching month tab is picked automatically</p>
+          <p>Drag the "2026 Production Plan Attainment" .xlsx here — every populated month tab is saved, not just the current one, so past months become browsable too</p>
         </div>
         <div class="dz-file hidden">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
@@ -222,6 +231,25 @@
       <div class="month-picker hidden" id="monthPickerRow">
         <label for="planMonthSelect">Production plan month tab</label>
         <select id="planMonthSelect"></select>
+      </div>
+
+      <div class="modal-divider"><span>Optional — for year-over-year comparison</span></div>
+
+      <div class="dropzone" id="dzPriorYear">
+        <input type="file" id="filePriorYear" accept=".xlsx">
+        <div class="dz-empty">
+          <svg class="dz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          <h4>Last year's KPI Calculator</h4>
+          <p>Drag last year's KPI Calculator .xlsx here to unlock a "vs last year" comparison for that same month</p>
+        </div>
+        <div class="dz-file hidden">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+          <div>
+            <div class="name"></div>
+            <div class="meta"></div>
+          </div>
+          <button class="dz-clear" type="button">Remove</button>
+        </div>
       </div>
 
       <div class="modal-note" id="modalNote">

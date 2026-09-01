@@ -296,6 +296,8 @@
     latestMonth: null, // the month GET /api/data returns by default — marked "(latest)" in the switcher
     activePage: "quality", // "quality" | "utileff" | "production"
     skuSort: { key: "diff", dir: "desc" },
+    chartStyle: (localStorage.getItem("kpisnapshot_chart_style") === "pie") ? "pie" : "bar",
+    priorYear: {}, // { "July": { rows: [...] }, ... } — same-month-last-year KPI rows, keyed by month
   };
 
   function findKpi(rows, name) {
@@ -350,9 +352,51 @@
         </div>
       `;
     }
+    statsHtml += buildYoyStat(kpiRows);
 
     const fullHtml = `<div class="hero-headline">${headlineHtml}</div><div class="hero-stats">${statsHtml}</div>`;
     $$(".hero").forEach((el) => { el.innerHTML = fullHtml; });
+  }
+
+  // "vs same month last year" comparison chip — only rendered when a
+  // prior-year KPI workbook has been uploaded for the exact month currently
+  // on screen (see the "Last year's KPI Calculator" dropzone in the upload
+  // modal). Compares Plan Attainment, the headline metric.
+  function buildYoyStat(kpiRows) {
+    const month = state.snapshot.month;
+    const priorYear = state.priorYear && state.priorYear[month];
+    if (!priorYear) return "";
+
+    const thisYearRow = findKpi(kpiRows, "Plan Attainment");
+    const lastYearRow = (priorYear.rows || []).find((r) => r.kpi === "Plan Attainment");
+    if (!thisYearRow || !lastYearRow || thisYearRow.actualMonth == null || lastYearRow.actualMonth == null) return "";
+
+    const thisPct = scaleKpiPercent(thisYearRow.actualMonth, "Plan Attainment");
+    const lastPct = scaleKpiPercent(lastYearRow.actualMonth, "Plan Attainment");
+    const deltaPp = thisPct - lastPct;
+    const g = deltaPp >= 0 ? "good" : "bad";
+    const maxScale = Math.max(thisPct, lastPct, 1) * 1.15;
+    const thisBarPct = Math.min(100, (thisPct / maxScale) * 100);
+    const lastBarPct = Math.min(100, (lastPct / maxScale) * 100);
+
+    return `
+      <div class="hero-stat yoy-stat">
+        <span class="k">vs ${month} last year</span>
+        <div class="yoy-bars">
+          <div class="yoy-bar-row">
+            <span class="yl">This</span>
+            <div class="yoy-bar-track"><div class="yoy-bar-fill this-year" style="width:${thisBarPct}%"></div></div>
+            <span class="yv">${thisPct.toFixed(1)}%</span>
+          </div>
+          <div class="yoy-bar-row">
+            <span class="yl">Last</span>
+            <div class="yoy-bar-track"><div class="yoy-bar-fill last-year" style="width:${lastBarPct}%"></div></div>
+            <span class="yv">${lastPct.toFixed(1)}%</span>
+          </div>
+        </div>
+        <span class="chip ${g}">${deltaPp >= 0 ? "+" : "\u2212"}${Math.abs(deltaPp).toFixed(1)}pp YoY</span>
+      </div>
+    `;
   }
 
   function renderMetricTile(row) {
@@ -377,6 +421,25 @@
   function renderTilePeriod(label, budget, actual, unit, kpiName, g) {
     const b = budget == null ? 0 : scaleForBar(budget, unit, kpiName);
     const a = actual == null ? 0 : scaleForBar(actual, unit, kpiName);
+    const fillColor = g === "good" ? "var(--teal)" : g === "bad" ? "var(--orange)" : "var(--sky)";
+
+    if (state.chartStyle === "pie") {
+      const ratio = b !== 0 ? Math.abs(a / b) : 0;
+      const pct = Math.max(0, Math.min(100, ratio * 100));
+      return `
+        <div class="mt-period">
+          <div class="mt-period-head">${label}</div>
+          <div class="mt-period-pie">
+            <div class="mt-pie" style="background:conic-gradient(${fillColor} ${pct}%, var(--wash) 0)" title="${pct.toFixed(0)}% of target"></div>
+            <div class="mt-pie-vals">
+              <div class="mt-actual">${fmtKpiValue(actual, unit, kpiName)}</div>
+              <div class="mt-meta">target ${fmtKpiValue(budget, unit, kpiName)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     const max = Math.max(Math.abs(b), Math.abs(a), 1) * 1.15;
     const fillPct = Math.min(100, (Math.abs(a) / max) * 100);
     const targetPct = Math.min(100, (Math.abs(b) / max) * 100);
@@ -423,6 +486,10 @@
     if (!plan) {
       section.classList.add("hidden");
       $("#prodEmpty").classList.remove("hidden");
+      // renderHero() writes to every .hero element including this one, so
+      // when there's no production data for the month it needs its own
+      // explicit reset rather than being left showing stale KPI-hero content.
+      $("#prodHero").innerHTML = `<div class="hero-headline"><div class="kicker">${state.snapshot.month || ""} · Production plan</div><div class="big">—</div></div>`;
       return;
     }
     section.classList.remove("hidden");
@@ -602,6 +669,7 @@
       state.months = data.months || [];
       state.snapshot = data.snapshot || null;
       state.latestMonth = data.snapshot ? data.snapshot.month : null;
+      await loadPriorYear();
       renderMonthSelect();
       renderAll();
     } catch {
@@ -689,7 +757,7 @@
      Upload modal
      ========================================================= */
 
-  const pending = { kpi: null, plan: null, planMonthOverride: null };
+  const pending = { kpi: null, plan: null, priorYear: null, planMonthOverride: null };
 
   function resetDropzone(id) {
     const dz = $(id);
@@ -710,7 +778,7 @@
   }
 
   function updateSaveButtonState() {
-    $("#saveUploadBtn").disabled = !(pending.kpi || pending.plan);
+    $("#saveUploadBtn").disabled = !(pending.kpi || pending.plan || pending.priorYear);
   }
 
   async function handleKpiFile(file) {
@@ -746,7 +814,8 @@
       $("#monthPickerRow").classList.remove("hidden");
 
       const preferred = (pending.kpi && pending.kpi.parsed.monthFull) || pending.planMonthOverride;
-      selectPlanMonth(preferred && availableMonths.includes(preferred) ? preferred : availableMonths[availableMonths.length - 1]);
+      const fallback = lastPopulatedMonth(wb, availableMonths) || availableMonths[availableMonths.length - 1];
+      selectPlanMonth(preferred && availableMonths.includes(preferred) ? preferred : fallback);
 
       toast(`Found ${availableMonths.length} month tabs.`, "ok");
     } catch (err) {
@@ -754,6 +823,37 @@
       resetDropzone("#dzPlan");
       $("#monthPickerRow").classList.add("hidden");
       pending.plan = null;
+    }
+    updateSaveButtonState();
+  }
+
+  // Walk backwards through the workbook's month tabs and return the most
+  // recent one with an actual non-zero planned volume — the calendar-last
+  // tab is often an empty template for a month that hasn't happened yet.
+  function lastPopulatedMonth(wb, availableMonths) {
+    for (let i = availableMonths.length - 1; i >= 0; i--) {
+      const m = availableMonths[i];
+      try {
+        const parsed = parseProductionPlanSheet(wb.Sheets[m]);
+        if (parsed.totals && parsed.totals.planned > 0) return m;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  async function handlePriorYearFile(file) {
+    try {
+      const wb = await readWorkbook(file);
+      const parsed = parseKpiWorkbook(wb);
+      pending.priorYear = { file, parsed };
+      fillDropzone("#dzPriorYear", file);
+      toast(`Read ${parsed.rows.length} prior-year KPI rows for ${parsed.monthFull || parsed.month}.`, "ok");
+    } catch (err) {
+      toast(err.message, "err");
+      resetDropzone("#dzPriorYear");
+      pending.priorYear = null;
     }
     updateSaveButtonState();
   }
@@ -785,6 +885,7 @@
       resetDropzone(dzId);
       if (dzId === "#dzKpi") pending.kpi = null;
       if (dzId === "#dzPlan") { pending.plan = null; $("#monthPickerRow").classList.add("hidden"); }
+      if (dzId === "#dzPriorYear") pending.priorYear = null;
       updateSaveButtonState();
     });
   }
@@ -797,36 +898,94 @@
   }
 
   async function saveUpload() {
-    if (!pending.kpi && !pending.plan) return;
+    if (!pending.kpi && !pending.plan && !pending.priorYear) return;
     const btn = $("#saveUploadBtn");
     const label = $("#saveUploadLabel");
     setBusy(btn, true, label);
     try {
-      const month = (pending.kpi && pending.kpi.parsed.monthFull) ||
-                    (pending.plan && pending.plan.parsed.month) ||
-                    (state.snapshot && state.snapshot.month);
-      if (!month) throw new Error("Couldn't determine which month this data is for.");
+      let backfilled = 0;
 
-      const payload = { month };
-      if (pending.kpi) payload.kpiDash = pending.kpi.parsed;
-      if (pending.plan) payload.productionPlan = pending.plan.parsed;
+      // Prior-year comparison data is independent of the current month —
+      // save it even if no current-year files were also dropped in.
+      if (pending.priorYear) {
+        await savePriorYear(pending.priorYear.parsed.monthFull, pending.priorYear.parsed.rows);
+        await loadPriorYear();
+      }
 
-      const snapshot = await saveSnapshot(payload);
-      state.snapshot = snapshot;
-      state.latestMonth = month;
-      if (!state.months.includes(month)) state.months.push(month);
+      if (pending.kpi || pending.plan) {
+        const month = (pending.kpi && pending.kpi.parsed.monthFull) ||
+                      (pending.plan && pending.plan.parsed.month) ||
+                      (state.snapshot && state.snapshot.month);
+        if (!month) throw new Error("Couldn't determine which month this data is for.");
+
+        const payload = { month };
+        if (pending.kpi) payload.kpiDash = pending.kpi.parsed;
+        if (pending.plan) payload.productionPlan = pending.plan.parsed;
+
+        const snapshot = await saveSnapshot(payload);
+        state.snapshot = snapshot;
+        state.latestMonth = month;
+        if (!state.months.includes(month)) state.months.push(month);
+
+        // Backfill every other populated month tab found in the Production
+        // Plan workbook (not just the current one), so past months become
+        // browsable immediately instead of waiting for future uploads.
+        if (pending.plan) {
+          for (const m of pending.plan.availableMonths) {
+            if (m === month) continue;
+            let monthParsed;
+            try {
+              monthParsed = parseProductionPlanWorkbook(pending.plan.wb, m);
+            } catch {
+              continue;
+            }
+            const hasData = monthParsed.totals && monthParsed.totals.planned > 0;
+            if (!hasData) continue;
+            await saveSnapshot({ month: m, productionPlan: monthParsed });
+            if (!state.months.includes(m)) state.months.push(m);
+            backfilled++;
+          }
+        }
+      }
+
       renderMonthSelect();
       renderAll();
-      toast("Dashboard updated for the whole team.", "ok");
+      toast(
+        backfilled > 0
+          ? `Dashboard updated — also backfilled ${backfilled} earlier month${backfilled === 1 ? "" : "s"} from the Production Plan workbook.`
+          : "Dashboard updated for the whole team.",
+        "ok"
+      );
       closeUploadModal();
-      pending.kpi = null; pending.plan = null;
-      resetDropzone("#dzKpi"); resetDropzone("#dzPlan");
+      pending.kpi = null; pending.plan = null; pending.priorYear = null;
+      resetDropzone("#dzKpi"); resetDropzone("#dzPlan"); resetDropzone("#dzPriorYear");
       $("#monthPickerRow").classList.add("hidden");
       updateSaveButtonState();
     } catch (err) {
       toast(err.message, "err");
     } finally {
       setBusy(btn, false, label);
+    }
+  }
+
+  async function savePriorYear(month, rows) {
+    const res = await fetch("/api/prioryear", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, rows }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "Couldn't save last year's data.");
+    return data.months;
+  }
+
+  async function loadPriorYear() {
+    try {
+      const res = await fetch("/api/prioryear");
+      const data = await res.json();
+      state.priorYear = data.months || {};
+    } catch {
+      // Non-fatal — the "vs last year" comparison just won't be available.
     }
   }
 
@@ -915,11 +1074,26 @@
 
     wireDropzone("#dzKpi", "#fileKpi", handleKpiFile);
     wireDropzone("#dzPlan", "#filePlan", handlePlanFile);
+    wireDropzone("#dzPriorYear", "#filePriorYear", handlePriorYearFile);
     wireSkuSort();
 
     $("#tabQuality").addEventListener("click", () => showPage("quality"));
     $("#tabUtilEff").addEventListener("click", () => showPage("utileff"));
     $("#tabProduction").addEventListener("click", () => showPage("production"));
+
+    $("#chartStyleBar").classList.toggle("active", state.chartStyle === "bar");
+    $("#chartStylePie").classList.toggle("active", state.chartStyle === "pie");
+    $("#chartStyleBar").addEventListener("click", () => setChartStyle("bar"));
+    $("#chartStylePie").addEventListener("click", () => setChartStyle("pie"));
+  }
+
+  function setChartStyle(style) {
+    if (state.chartStyle === style) return;
+    state.chartStyle = style;
+    localStorage.setItem("kpisnapshot_chart_style", style);
+    $("#chartStyleBar").classList.toggle("active", style === "bar");
+    $("#chartStylePie").classList.toggle("active", style === "pie");
+    if (state.snapshot) renderCategories();
   }
 
   document.addEventListener("DOMContentLoaded", boot);
