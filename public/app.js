@@ -365,7 +365,7 @@
     snapshot: null,   // { month, kpiDash: {month, rows}, productionPlan: {month, skus, totals}, savedAt }
     months: [],
     latestMonth: null, // the month GET /api/data returns by default — marked "(latest)" in the switcher
-    activePage: "quality", // "quality" | "utileff" | "production"
+    activePage: "quality", // "quality" | "utilities" | "efficiency" | "production"
     skuSort: { key: "diff", dir: "desc" },
     chartStyle: (localStorage.getItem("kpisnapshot_chart_style") === "pie") ? "pie" : "bar",
     priorYear: {}, // { "July": { rows: [...] }, ... } — same-month-last-year KPI rows, keyed by month
@@ -741,7 +741,8 @@
     if (!state.snapshot) {
       $("#pageTabs").classList.add("hidden");
       $("#page-quality").classList.add("hidden");
-      $("#page-utileff").classList.add("hidden");
+      $("#page-utilities").classList.add("hidden");
+      $("#page-efficiency").classList.add("hidden");
       $("#page-production").classList.add("hidden");
       $("#emptyState").classList.remove("hidden");
       $("#exportBtn").disabled = true;
@@ -762,8 +763,8 @@
     $("#footerMeta").textContent = savedAt ? `Last updated ${savedAt.toLocaleString()}` : "";
   }
 
-  const PAGE_IDS = { quality: "page-quality", utileff: "page-utileff", production: "page-production" };
-  const TAB_IDS = { quality: "tabQuality", utileff: "tabUtilEff", production: "tabProduction" };
+  const PAGE_IDS = { quality: "page-quality", utilities: "page-utilities", efficiency: "page-efficiency", production: "page-production" };
+  const TAB_IDS = { quality: "tabQuality", utilities: "tabUtilities", efficiency: "tabEfficiency", production: "tabProduction" };
 
   function showPage(page) {
     state.activePage = page;
@@ -1294,7 +1295,8 @@
     wireSkuSort();
 
     $("#tabQuality").addEventListener("click", () => showPage("quality"));
-    $("#tabUtilEff").addEventListener("click", () => showPage("utileff"));
+    $("#tabUtilities").addEventListener("click", () => showPage("utilities"));
+    $("#tabEfficiency").addEventListener("click", () => showPage("efficiency"));
     $("#tabProduction").addEventListener("click", () => showPage("production"));
 
     $("#chartStyleBar").classList.toggle("active", state.chartStyle === "bar");

@@ -13,6 +13,14 @@ a **Deploy command** field defaulting to `npx wrangler deploy` — rather than t
 separate Pages product, since that's what's available for new projects on most accounts
 now.
 
+The dashboard has four pages, switched via tabs in the header: **Quality**, **Utilities**,
+**Efficiency**, and **Production Plan**, each sized to fit a typical laptop screen without
+scrolling. The one exception is the Quality page specifically — it has more metrics than
+the others (12, versus 4 for Utilities and 9 for Efficiency), so on the smallest screens
+this project is tested against (1366×768 and 1280×800) its last row or so needs a small
+internal scroll to reach. Nothing else moves when that happens — the header, hero, and
+tabs stay in place; only the tile grid itself scrolls.
+
 ## How it works
 
 - **Parsing happens in your browser.** The `.xlsx` files never get uploaded as files —
@@ -157,9 +165,10 @@ have real data for gets extracted and saved, keyed by month, independent of the 
 month you're viewing.
 
 Whenever the month you're currently viewing has a matching prior-year month saved, a
-"This"/"Last" comparison bar appears on the Quality and Utilities & Efficiency hero
-(comparing Plan Attainment), with a delta badge. If there's no exact same-month match, the
-bar simply doesn't appear on the hero — nothing breaks, no error.
+"This"/"Last" comparison bar appears on the hero of all three KPI pages — Quality,
+Utilities, and Efficiency (comparing Plan Attainment), with a delta badge. If there's no
+exact same-month match, the bar simply doesn't appear on the hero — nothing breaks, no
+error.
 
 Separately, **every individual metric tile** gets a third bar of its own — "vs Last Year"
 — comparing that specific KPI's year-to-date total against last year's full-year total
@@ -182,7 +191,7 @@ remembered per-browser (via `localStorage`), not per-account.
 
 ### Inspecting a tile up close
 
-Click (or focus + Enter/Space) any metric tile on the Quality or Utilities & Efficiency
+Click (or focus + Enter/Space) any metric tile on the Quality, Utilities, or Efficiency
 pages to see it enlarged — up to 200% (2×), automatically capped so it never overflows
 the screen on smaller windows. Click the dimmed background, or press Escape, to close it.
 It's an exact clone of the tile as currently rendered, so it works correctly in both bar

@@ -92,9 +92,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z" stroke-linejoin="round"/></svg>
         Quality
       </button>
-      <button class="page-tab" id="tabUtilEff" data-page="utileff">
+      <button class="page-tab" id="tabUtilities" data-page="utilities">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2.5c3 3.5 5.5 7 5.5 10.2a5.5 5.5 0 11-11 0C6.5 9.5 9 6 12 2.5z" stroke-linejoin="round"/></svg>
+        Utilities
+      </button>
+      <button class="page-tab" id="tabEfficiency" data-page="efficiency">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" stroke-linejoin="round"/></svg>
-        Utilities &amp; Efficiency
+        Efficiency
       </button>
       <button class="page-tab" id="tabProduction" data-page="production">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h12l-1 6a5 5 0 01-10 0L6 3z"/><path d="M8 21h8M12 15v6"/></svg>
@@ -116,32 +120,35 @@
       </section>
     </div>
 
-    <!-- ============ PAGE 2: Utilities & Efficiency ============ -->
-    <div id="page-utileff" class="app-page hidden">
+    <!-- ============ PAGE 2: Utilities ============ -->
+    <div id="page-utilities" class="app-page hidden">
       <section class="hero hero-instance"></section>
 
-      <div class="stacked-categories">
-        <section class="category category-stacked" data-type="Utilities">
-          <div class="category-head">
-            <span class="swatch" style="background:var(--sky)"></span>
-            <h2>Utilities</h2>
-            <span class="count"></span>
-          </div>
-          <div class="metric-tile-grid"></div>
-        </section>
-
-        <section class="category category-stacked" data-type="Efficiency">
-          <div class="category-head">
-            <span class="swatch" style="background:var(--orange)"></span>
-            <h2>Efficiency</h2>
-            <span class="count"></span>
-          </div>
-          <div class="metric-tile-grid"></div>
-        </section>
-      </div>
+      <section class="category category-solo" data-type="Utilities">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--sky)"></span>
+          <h2>Utilities</h2>
+          <span class="count"></span>
+        </div>
+        <div class="metric-tile-grid"></div>
+      </section>
     </div>
 
-    <!-- ============ PAGE 3: Production Plan ============ -->
+    <!-- ============ PAGE 3: Efficiency ============ -->
+    <div id="page-efficiency" class="app-page hidden">
+      <section class="hero hero-instance"></section>
+
+      <section class="category category-solo" data-type="Efficiency">
+        <div class="category-head">
+          <span class="swatch" style="background:var(--orange)"></span>
+          <h2>Efficiency</h2>
+          <span class="count"></span>
+        </div>
+        <div class="metric-tile-grid"></div>
+      </section>
+    </div>
+
+    <!-- ============ PAGE 4: Production Plan ============ -->
     <div id="page-production" class="app-page hidden">
       <div class="prod-empty hidden" id="prodEmpty">
         <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h12l-1 6a5 5 0 01-10 0L6 3z"/><path d="M8 21h8M12 15v6"/></svg>
