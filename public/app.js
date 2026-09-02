@@ -436,52 +436,37 @@
   function buildYoyStat(kpiRows) {
     const month = state.snapshot.month;
     const priorYear = state.priorYear && state.priorYear[month];
+    if (!priorYear) return "";
+
     const kpiName = "Plan Attainment";
     const thisYearRow = findKpi(kpiRows, kpiName);
-    const lastYearRow = priorYear && (priorYear.rows || []).find((r) => r.kpi === kpiName);
-    const hasMonthMatch = thisYearRow && lastYearRow && thisYearRow.actualMonth != null && lastYearRow.actualMonth != null;
+    const lastYearRow = (priorYear.rows || []).find((r) => r.kpi === kpiName);
+    if (!thisYearRow || !lastYearRow || thisYearRow.actualMonth == null || lastYearRow.actualMonth == null) return "";
 
-    const annualTotal = priorYearAnnualTotal(kpiName);
-
-    if (!hasMonthMatch && annualTotal == null) return "";
-
-    const thisPct = hasMonthMatch ? scaleKpiPercent(thisYearRow.actualMonth, kpiName) : null;
-    const lastPct = hasMonthMatch ? scaleKpiPercent(lastYearRow.actualMonth, kpiName) : null;
-    const totalPct = annualTotal != null ? scaleKpiPercent(annualTotal, kpiName) : null;
-    const deltaPp = hasMonthMatch ? thisPct - lastPct : null;
-    const g = deltaPp != null ? (deltaPp >= 0 ? "good" : "bad") : "flat";
-
-    const scaleValues = [thisPct, lastPct, totalPct].filter((v) => v != null);
-    const maxScale = Math.max(...scaleValues, 1) * 1.15;
-    const barPct = (v) => (v == null ? 0 : Math.min(100, (v / maxScale) * 100));
-
-    const rows = [];
-    if (hasMonthMatch) {
-      rows.push(["This", "this-year", thisPct]);
-      rows.push(["Last", "last-year", lastPct]);
-    }
-    if (totalPct != null) {
-      rows.push(["Total", "total-year", totalPct]);
-    }
-
-    const barsHtml = rows.map(([label, cls, pct]) => `
-      <div class="yoy-bar-row">
-        <span class="yl">${label}</span>
-        <div class="yoy-bar-track"><div class="yoy-bar-fill ${cls}" style="width:${barPct(pct)}%"></div></div>
-        <span class="yv">${pct.toFixed(1)}%</span>
-      </div>
-    `).join("");
-
-    const kicker = hasMonthMatch ? `vs ${month} last year` : "vs last year";
-    const chipHtml = deltaPp != null
-      ? `<span class="chip ${g}">${deltaPp >= 0 ? "+" : "\u2212"}${Math.abs(deltaPp).toFixed(1)}pp YoY</span>`
-      : "";
+    const thisPct = scaleKpiPercent(thisYearRow.actualMonth, kpiName);
+    const lastPct = scaleKpiPercent(lastYearRow.actualMonth, kpiName);
+    const deltaPp = thisPct - lastPct;
+    const g = deltaPp >= 0 ? "good" : "bad";
+    const maxScale = Math.max(thisPct, lastPct, 1) * 1.15;
+    const thisBarPct = Math.min(100, (thisPct / maxScale) * 100);
+    const lastBarPct = Math.min(100, (lastPct / maxScale) * 100);
 
     return `
       <div class="hero-stat yoy-stat">
-        <span class="k">${kicker}</span>
-        <div class="yoy-bars">${barsHtml}</div>
-        ${chipHtml}
+        <span class="k">vs ${month} last year</span>
+        <div class="yoy-bars">
+          <div class="yoy-bar-row">
+            <span class="yl">This</span>
+            <div class="yoy-bar-track"><div class="yoy-bar-fill this-year" style="width:${thisBarPct}%"></div></div>
+            <span class="yv">${thisPct.toFixed(1)}%</span>
+          </div>
+          <div class="yoy-bar-row">
+            <span class="yl">Last</span>
+            <div class="yoy-bar-track"><div class="yoy-bar-fill last-year" style="width:${lastBarPct}%"></div></div>
+            <span class="yv">${lastPct.toFixed(1)}%</span>
+          </div>
+        </div>
+        <span class="chip ${g}">${deltaPp >= 0 ? "+" : "\u2212"}${Math.abs(deltaPp).toFixed(1)}pp YoY</span>
       </div>
     `;
   }
@@ -515,8 +500,62 @@
       </div>
       ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
       ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+      ${renderTileYoyPeriod(row)}
     `;
     return el;
+  }
+
+  // Third tile section: this year's total-to-date vs. the target vs. last
+  // year's full-year total for that same KPI — only rendered when prior-year
+  // data covers this specific metric.
+  function renderTileYoyPeriod(row) {
+    const lastYearTotal = priorYearAnnualTotal(row.kpi);
+    if (lastYearTotal == null || row.actualYtd == null) return "";
+
+    const direction = KPI_DIRECTION[row.kpi] || "higher";
+    const g = goodness(direction, row.actualYtd - lastYearTotal);
+    const fillColor = g === "good" ? "var(--teal)" : g === "bad" ? "var(--orange)" : "var(--sky)";
+
+    const thisTotal = scaleForBar(row.actualYtd, row.unit, row.kpi);
+    const lastTotal = scaleForBar(lastYearTotal, row.unit, row.kpi);
+    const target = row.budgetYtd == null ? null : scaleForBar(row.budgetYtd, row.unit, row.kpi);
+
+    if (state.chartStyle === "pie") {
+      const ratio = lastTotal !== 0 ? Math.abs(thisTotal / lastTotal) : 0;
+      const pct = Math.max(0, Math.min(100, ratio * 100));
+      return `
+        <div class="mt-period">
+          <div class="mt-period-head">vs Last Year</div>
+          <div class="mt-period-pie">
+            <div class="mt-pie" style="background:conic-gradient(${fillColor} ${pct}%, var(--wash) 0)" title="${pct.toFixed(0)}% of last year's total"></div>
+            <div class="mt-pie-vals">
+              <div class="mt-actual">${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</div>
+              <div class="mt-meta">LY total ${fmtKpiValue(lastYearTotal, row.unit, row.kpi)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    const values = [thisTotal, lastTotal, target].filter((v) => v != null).map(Math.abs);
+    const max = Math.max(...values, 1) * 1.15;
+    const fillPct = Math.min(100, (Math.abs(thisTotal) / max) * 100);
+    const lastPct = Math.min(100, (Math.abs(lastTotal) / max) * 100);
+    const targetPct = target == null ? null : Math.min(100, (Math.abs(target) / max) * 100);
+    const fillClass = g === "good" ? "good" : g === "bad" ? "bad" : "";
+
+    return `
+      <div class="mt-period">
+        <div class="mt-period-head">vs Last Year</div>
+        <div class="mt-actual">${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</div>
+        <div class="mt-bar">
+          <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
+          ${targetPct != null ? `<div class="target" style="left:${targetPct}%"></div>` : ""}
+          <div class="lastyear-tick" style="left:${lastPct}%"></div>
+        </div>
+        <div class="mt-meta">LY total ${fmtKpiValue(lastYearTotal, row.unit, row.kpi)}</div>
+      </div>
+    `;
   }
 
   function renderTilePeriod(label, budget, actual, unit, kpiName, g) {
@@ -1009,7 +1048,7 @@
 
   // Click (or Enter/Space) any metric tile to inspect it enlarged — clones
   // the tile exactly as currently rendered (so it works in both bar and pie
-  // chart mode) into a centered overlay, scaled up to 400% but capped so it
+  // chart mode) into a centered overlay, scaled up to 200% but capped so it
   // never overflows the viewport on smaller screens.
   function openTileZoom(tileEl) {
     const stage = $("#tileZoomStage");
@@ -1022,7 +1061,7 @@
     const rect = tileEl.getBoundingClientRect();
     const maxScaleW = (window.innerWidth * 0.88) / rect.width;
     const maxScaleH = (window.innerHeight * 0.85) / rect.height;
-    const scale = Math.max(1, Math.min(4, maxScaleW, maxScaleH));
+    const scale = Math.max(1, Math.min(2, maxScaleW, maxScaleH));
     stage.style.width = rect.width + "px";
     stage.style.setProperty("--zoom-scale", scale);
 

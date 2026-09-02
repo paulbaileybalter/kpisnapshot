@@ -157,19 +157,17 @@ have real data for gets extracted and saved, keyed by month, independent of the 
 month you're viewing.
 
 Whenever the month you're currently viewing has a matching prior-year month saved, a
-comparison bar appears on the Quality and Utilities & Efficiency hero (comparing Plan
-Attainment), with up to three rows:
+"This"/"Last" comparison bar appears on the Quality and Utilities & Efficiency hero
+(comparing Plan Attainment), with a delta badge. If there's no exact same-month match, the
+bar simply doesn't appear on the hero — nothing breaks, no error.
 
-- **This** — this year, the month you're currently viewing
-- **Last** — last year, that same month
-- **Total** — last year's full-year total (the YTD value from whichever saved prior-year
-  month is chronologically last — once that's December, YTD-at-December is the annual
-  figure)
-
-The "This"/"Last" rows and their delta badge only show up when there's an exact
-same-month match; the "Total" row shows up independently whenever any prior-year data
-exists at all, even without a month match. If there's no prior-year data at all, the bar
-simply doesn't appear — nothing breaks, no error.
+Separately, **every individual metric tile** gets a third bar of its own — "vs Last Year"
+— comparing that specific KPI's year-to-date total against last year's full-year total
+(the YTD value from whichever saved prior-year month is chronologically last; once that's
+December, YTD-at-December is the annual figure). It shows a gold tick mark for last year's
+total alongside the usual dark target tick, so you can see at a glance where this year
+stands relative to both. This one only needs *any* prior-year data for that KPI, not a
+month match, so it's usually available even when the hero's "This/Last" bar isn't.
 
 ### Bar / pie chart toggle
 
@@ -180,7 +178,7 @@ remembered per-browser (via `localStorage`), not per-account.
 ### Inspecting a tile up close
 
 Click (or focus + Enter/Space) any metric tile on the Quality or Utilities & Efficiency
-pages to see it enlarged — up to 400% (4×), automatically capped so it never overflows
+pages to see it enlarged — up to 200% (2×), automatically capped so it never overflows
 the screen on smaller windows. Click the dimmed background, or press Escape, to close it.
 It's an exact clone of the tile as currently rendered, so it works correctly in both bar
 and pie chart mode.
@@ -203,9 +201,11 @@ and pie chart mode.
   (Month), Actual (Month), Variance (Month), Budget (YTD), Actual (YTD), Variance (YTD)`
   layout. If your NetSuite import template needs specific column names/order, that's all
   defined in one function — `buildCsv()` in `public/app.js`.
-- **Year-over-year comparison scope.** Only Plan Attainment is compared right now (it's
-  the headline metric on both KPI pages). Extending this to more metrics is a matter of
-  looping over more KPI names in `buildYoyStat()` in `public/app.js`.
+- **Year-over-year comparison scope.** The hero's "This/Last" bar only compares Plan
+  Attainment (it's the headline metric on both KPI pages) — extending that to more metrics
+  is a matter of looping over more KPI names in `buildYoyStat()` in `public/app.js`. The
+  per-tile "vs Last Year" bar already covers every metric automatically, since
+  `renderTileYoyPeriod()` looks up whichever KPI that tile represents.
 
 ## Local development
 
