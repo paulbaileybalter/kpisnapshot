@@ -307,18 +307,6 @@ header{
 #page-production{gap:0;}
 .production{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
 
-/* Compact gauge embedded in the production page's hero-headline, sized to
-   sit inline with the kicker/big text rather than as its own big block —
-   keeps the bar the same height as the Quality / Utilities & Efficiency hero. */
-.hero-headline.prod-headline{flex-direction:row; align-items:center; gap:14px;}
-.mini-gauge{position:relative; width:60px; height:60px; flex:0 0 auto;}
-.mini-gauge svg{display:block;}
-.mini-gauge-label{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  font-family:var(--font-mono); font-size:11px; font-weight:700; color:#fff;
-}
-.prod-headline-text{display:flex; flex-direction:column; gap:2px;}
-
 .prod-chart-wrap{
   flex:1 1 auto; min-height:0; display:flex; flex-direction:column;
   background:#fff; border:1.5px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:var(--shadow);

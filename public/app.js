@@ -641,14 +641,14 @@
     const t = plan.totals || {};
     const value = t.attainment == null ? null : t.attainment * 100;
     const diffGood = (t.diff || 0) >= 0;
+    const attainDeltaPp = value == null ? null : value - 100;
+    const attainGood = attainDeltaPp != null && attainDeltaPp >= 0;
 
     $("#prodHero").innerHTML = `
-      <div class="hero-headline prod-headline">
-        ${buildMiniGauge(t.attainment)}
-        <div class="prod-headline-text">
-          <div class="kicker">${plan.month || ""} · Plan attainment</div>
-          <div class="big">${value == null ? "—" : value.toFixed(1) + "%"}</div>
-        </div>
+      <div class="hero-headline">
+        <div class="kicker">${plan.month || ""} · Plan attainment</div>
+        <div class="big">${value == null ? "—" : value.toFixed(1) + "%"}<small>vs 100.0% target</small></div>
+        ${attainDeltaPp == null ? "" : `<span class="delta ${attainGood ? "good" : "bad"}">${attainGood ? "+" : "\u2212"}${Math.abs(attainDeltaPp).toFixed(1)}pp vs target</span>`}
       </div>
       <div class="hero-stats">
         <div class="hero-stat">
@@ -668,28 +668,6 @@
     `;
 
     renderSkuTable();
-  }
-
-  // Small radial progress ring embedded in the production hero's headline —
-  // sized to sit inline with the kicker/big text so the bar stays the same
-  // height as the Quality / Utilities & Efficiency hero.
-  function buildMiniGauge(pct) {
-    const size = 60, stroke = 8, r = (size - stroke) / 2, c = 2 * Math.PI * r;
-    const value = pct == null ? 0 : pct * 100;
-    const clamped = Math.max(0, Math.min(100, value));
-    const offset = c * (1 - clamped / 100);
-    const color = value >= 98 ? "var(--teal)" : "var(--orange)";
-    return `
-      <div class="mini-gauge">
-        <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
-          <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="${stroke}"/>
-          <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
-            stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${offset}"
-            transform="rotate(-90 ${size / 2} ${size / 2})"/>
-        </svg>
-        <span class="mini-gauge-label">${pct == null ? "—" : Math.round(value) + "%"}</span>
-      </div>
-    `;
   }
 
   function renderSkuTable() {
