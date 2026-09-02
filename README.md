@@ -131,12 +131,22 @@ whatever's already stored for that month rather than overwriting it.
 ### Browsing previous months
 
 The **Month** dropdown in the header lists every month that's been saved, most recent
-first. Production Plan history fills in automatically as above. KPI history is different:
-the KPI Calculator's `KPI - Dash` tab is a live snapshot that only ever shows whichever
-month is "current" in the Google Sheet — there's no way to pull last month's KPI figures
-out of this month's export. KPI history simply accumulates one month at a time as you
-upload each month going forward (or immediately, if you happen to have historical KPI
-Calculator exports sitting around from previous months).
+first. Both the Production Plan and the KPI Calculator now backfill history automatically:
+
+- **Production Plan** — every populated month tab in the workbook is saved, not just the
+  current one.
+- **KPI Calculator** — the `KPI - Dash` tab itself is only ever a snapshot of whichever
+  month is "current" in the Google Sheet, but the workbook's `KPI - Actual`, `KPI - BU`,
+  and `KPI - YTD` tabs each carry one column per month for the full year. Every month
+  those three tabs have real data for gets reconstructed and saved too — so a single
+  upload backfills the whole year's KPI history in one go, not just Production Plan's.
+  (A handful of ratio-style metrics default to `0` or `#DIV/0!` for months that haven't
+  happened yet; the backfill uses Plan Attainment specifically as the signal for "did
+  this month really happen," since it's the one metric that's reliably only populated
+  once a month has actually been reported.)
+
+Either way, empty future-month templates are detected and skipped — you won't end up with
+blank entries cluttering the dropdown for months that haven't happened yet.
 
 ### Year-over-year comparison
 

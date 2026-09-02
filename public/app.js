@@ -236,6 +236,77 @@
     };
   }
 
+  const MONTH_ABBR_LIST = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // The "KPI - Dash" tab only ever shows whichever month is currently
+  // selected in the live Google Sheet — but the underlying "KPI - Actual",
+  // "KPI - BU", and "KPI - YTD" tabs each carry one column per month for
+  // the full year, and rebuilding KPI-Dash's rows from them (matched by
+  // Type+KPI, since the three tabs don't share row order) lets us backfill
+  // every past month a KPI workbook has ever recorded, not just the current
+  // one. YTD budget isn't tracked separately anywhere in the workbook, but
+  // every row's monthly budget is flat across the year (verified against
+  // the real file), so budgetYtd reuses budgetMonth.
+  function parseKpiHistoryWorkbook(wb) {
+    const actualSheet = wb.Sheets["KPI - Actual"];
+    const buSheet = wb.Sheets["KPI - BU"];
+    const ytdSheet = wb.Sheets["KPI - YTD"];
+    if (!actualSheet || !buSheet || !ytdSheet) return {};
+
+    const buildMap = (ws) => {
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
+      const map = new Map();
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r || !r[0] || !r[1]) continue;
+        const key = String(r[0]).trim() + "||" + String(r[1]).trim();
+        map.set(key, { type: String(r[0]).trim(), kpi: String(r[1]).trim(), unit: r[2] != null ? String(r[2]).trim() : null, months: r.slice(3, 15) });
+      }
+      return map;
+    };
+
+    const actualMap = buildMap(actualSheet);
+    const buMap = buildMap(buSheet);
+    const ytdMap = buildMap(ytdSheet);
+
+    const history = {};
+    MONTH_ABBR_LIST.forEach((abbrev, idx) => {
+      // A handful of rows (mostly ratio metrics that divide by zero when
+      // there's no volume yet) carry a stray 0 or #DIV/0! value for every
+      // future month regardless of whether that month has really happened.
+      // Anchor "is this month real" on Plan Attainment specifically — the
+      // one metric guaranteed to only be populated once the month has
+      // actually been reported — rather than "does any row have a value".
+      const anchor = actualMap.get("Efficiency||Plan Attainment");
+      const monthIsReal = anchor && numOrNull(anchor.months[idx]) != null;
+      if (!monthIsReal) return;
+
+      const rowsForMonth = [];
+      for (const [key, a] of actualMap) {
+        const actualMonth = numOrNull(a.months[idx]);
+        if (actualMonth == null) continue; // no data recorded for this KPI this month
+        const bu = buMap.get(key);
+        const ytd = ytdMap.get(key);
+        const budgetMonth = bu ? numOrNull(bu.months[idx]) : null;
+        const actualYtd = ytd ? numOrNull(ytd.months[idx]) : null;
+        const budgetYtd = budgetMonth;
+        rowsForMonth.push({
+          type: a.type,
+          kpi: a.kpi,
+          unit: a.unit,
+          budgetMonth,
+          actualMonth,
+          varMonth: budgetMonth != null && actualMonth != null ? actualMonth - budgetMonth : null,
+          budgetYtd,
+          actualYtd,
+          varYtd: budgetYtd != null && actualYtd != null ? actualYtd - budgetYtd : null,
+        });
+      }
+      if (rowsForMonth.length) history[MONTH_ABBR_TO_FULL[abbrev]] = rowsForMonth;
+    });
+    return history; // { "January": [rows...], "February": [rows...], ... }
+  }
+
   function parseProductionPlanSheet(ws) {
     const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
     const headerIdx = rows.findIndex((r) => r && String(r[0] || "").trim().toLowerCase() === "sku");
@@ -785,9 +856,16 @@
     try {
       const wb = await readWorkbook(file);
       const parsed = parseKpiWorkbook(wb);
-      pending.kpi = { file, parsed };
+      const history = parseKpiHistoryWorkbook(wb);
+      pending.kpi = { file, parsed, history };
       fillDropzone("#dzKpi", file);
-      toast(`Read ${parsed.rows.length} KPI rows for ${parsed.monthFull || parsed.month}.`, "ok");
+      const historyMonths = Object.keys(history).filter((m) => m !== parsed.monthFull).length;
+      toast(
+        historyMonths > 0
+          ? `Read ${parsed.rows.length} KPI rows for ${parsed.monthFull || parsed.month} (plus ${historyMonths} earlier month${historyMonths === 1 ? "" : "s"} of history available to backfill).`
+          : `Read ${parsed.rows.length} KPI rows for ${parsed.monthFull || parsed.month}.`,
+        "ok"
+      );
 
       // If a plan file is already staged, offer to re-match its month.
       if (pending.plan && pending.plan.availableMonths && parsed.monthFull) {
@@ -927,9 +1005,15 @@
         state.latestMonth = month;
         if (!state.months.includes(month)) state.months.push(month);
 
-        // Backfill every other populated month tab found in the Production
-        // Plan workbook (not just the current one), so past months become
-        // browsable immediately instead of waiting for future uploads.
+        // Backfill every other month either workbook has real data for —
+        // every populated Production Plan tab, and every month the KPI
+        // workbook's Actual/BU/YTD tabs have recorded — so past months
+        // become browsable immediately instead of waiting for future
+        // uploads. Combine both into one save per month where they overlap.
+        const backfillMonths = new Set();
+        const productionByMonth = {};
+        const kpiByMonth = {};
+
         if (pending.plan) {
           for (const m of pending.plan.availableMonths) {
             if (m === month) continue;
@@ -941,10 +1025,25 @@
             }
             const hasData = monthParsed.totals && monthParsed.totals.planned > 0;
             if (!hasData) continue;
-            await saveSnapshot({ month: m, productionPlan: monthParsed });
-            if (!state.months.includes(m)) state.months.push(m);
-            backfilled++;
+            productionByMonth[m] = monthParsed;
+            backfillMonths.add(m);
           }
+        }
+        if (pending.kpi && pending.kpi.history) {
+          for (const m of Object.keys(pending.kpi.history)) {
+            if (m === month) continue;
+            kpiByMonth[m] = { rows: pending.kpi.history[m] };
+            backfillMonths.add(m);
+          }
+        }
+
+        for (const m of backfillMonths) {
+          const bfPayload = { month: m };
+          if (kpiByMonth[m]) bfPayload.kpiDash = kpiByMonth[m];
+          if (productionByMonth[m]) bfPayload.productionPlan = productionByMonth[m];
+          await saveSnapshot(bfPayload);
+          if (!state.months.includes(m)) state.months.push(m);
+          backfilled++;
         }
       }
 
@@ -952,7 +1051,7 @@
       renderAll();
       toast(
         backfilled > 0
-          ? `Dashboard updated — also backfilled ${backfilled} earlier month${backfilled === 1 ? "" : "s"} from the Production Plan workbook.`
+          ? `Dashboard updated — also backfilled ${backfilled} earlier month${backfilled === 1 ? "" : "s"} of history.`
           : "Dashboard updated for the whole team.",
         "ok"
       );
