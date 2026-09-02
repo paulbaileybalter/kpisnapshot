@@ -166,8 +166,13 @@ Separately, **every individual metric tile** gets a third bar of its own — "vs
 (the YTD value from whichever saved prior-year month is chronologically last; once that's
 December, YTD-at-December is the annual figure). It shows a gold tick mark for last year's
 total alongside the usual dark target tick, so you can see at a glance where this year
-stands relative to both. This one only needs *any* prior-year data for that KPI, not a
-month match, so it's usually available even when the hero's "This/Last" bar isn't.
+stands relative to both. The bar's headline number is the *change* between the two years
+(e.g. "+8.9 pp"), not this year's total again — the "This month"/"Year to date" sections
+above it already show that figure, so repeating it here as the headline made the section
+look like a copy-paste duplicate rather than a real comparison; both actual values are
+still there, just as compact text under the bar ("73.4% vs LY 64.5%"). This one only needs
+*any* prior-year data for that KPI, not a month match, so it's usually available even when
+the hero's "This/Last" bar isn't.
 
 ### Bar / pie chart toggle
 

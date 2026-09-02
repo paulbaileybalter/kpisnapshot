@@ -513,8 +513,11 @@
     if (lastYearTotal == null || row.actualYtd == null) return "";
 
     const direction = KPI_DIRECTION[row.kpi] || "higher";
-    const g = goodness(direction, row.actualYtd - lastYearTotal);
+    const deltaRaw = row.actualYtd - lastYearTotal;
+    const g = goodness(direction, deltaRaw);
+    const badgeClass = g === "flat" ? "flat" : g;
     const fillColor = g === "good" ? "var(--teal)" : g === "bad" ? "var(--orange)" : "var(--sky)";
+    const deltaDisplay = fmtKpiDelta(deltaRaw, row.unit, row.kpi);
 
     const thisTotal = scaleForBar(row.actualYtd, row.unit, row.kpi);
     const lastTotal = scaleForBar(lastYearTotal, row.unit, row.kpi);
@@ -527,10 +530,10 @@
         <div class="mt-period">
           <div class="mt-period-head">vs Last Year</div>
           <div class="mt-period-pie">
-            <div class="mt-pie" style="background:conic-gradient(${fillColor} ${pct}%, var(--wash) 0)" title="${pct.toFixed(0)}% of last year's total"></div>
+            <div class="mt-pie" style="background:conic-gradient(${fillColor} ${pct}%, var(--wash) 0)" title="This year's total is ${pct.toFixed(0)}% of last year's"></div>
             <div class="mt-pie-vals">
-              <div class="mt-actual">${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</div>
-              <div class="mt-meta">LY total ${fmtKpiValue(lastYearTotal, row.unit, row.kpi)}</div>
+              <div class="mt-actual"><span class="mt-yoy-badge ${badgeClass}">${deltaDisplay}</span></div>
+              <div class="mt-meta">${fmtKpiValue(row.actualYtd, row.unit, row.kpi)} vs LY ${fmtKpiValue(lastYearTotal, row.unit, row.kpi)}</div>
             </div>
           </div>
         </div>
@@ -547,13 +550,13 @@
     return `
       <div class="mt-period">
         <div class="mt-period-head">vs Last Year</div>
-        <div class="mt-actual">${fmtKpiValue(row.actualYtd, row.unit, row.kpi)}</div>
+        <span class="mt-yoy-badge ${badgeClass}">${deltaDisplay}</span>
         <div class="mt-bar">
           <div class="fill ${fillClass}" style="width:${fillPct}%"></div>
           ${targetPct != null ? `<div class="target" style="left:${targetPct}%"></div>` : ""}
           <div class="lastyear-tick" style="left:${lastPct}%"></div>
         </div>
-        <div class="mt-meta">LY total ${fmtKpiValue(lastYearTotal, row.unit, row.kpi)}</div>
+        <div class="mt-meta">${fmtKpiValue(row.actualYtd, row.unit, row.kpi)} vs LY ${fmtKpiValue(lastYearTotal, row.unit, row.kpi)}</div>
       </div>
     `;
   }
