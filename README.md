@@ -151,18 +151,39 @@ blank entries cluttering the dropdown for months that haven't happened yet.
 ### Year-over-year comparison
 
 Drop last year's KPI Calculator export into the third ("optional") dropzone in the upload
-modal. It's saved independently of the current month, keyed by whatever month it actually
-represents (again, read from the workbook's own "current month" cell — so a December
-export saves as December, regardless of when you upload it). Whenever the month you're
-currently viewing has a matching prior-year month saved, a "vs [month] last year" bar
-appears on the Quality and Utilities & Efficiency hero, comparing Plan Attainment. If there's
-no matching prior-year month, the bar simply doesn't appear — nothing breaks, no error.
+modal. Just like the current year's file, it's not limited to whichever month happens to
+be "current" in the sheet — every month its `KPI - Actual` / `KPI - BU` / `KPI - YTD` tabs
+have real data for gets extracted and saved, keyed by month, independent of the current
+month you're viewing.
+
+Whenever the month you're currently viewing has a matching prior-year month saved, a
+comparison bar appears on the Quality and Utilities & Efficiency hero (comparing Plan
+Attainment), with up to three rows:
+
+- **This** — this year, the month you're currently viewing
+- **Last** — last year, that same month
+- **Total** — last year's full-year total (the YTD value from whichever saved prior-year
+  month is chronologically last — once that's December, YTD-at-December is the annual
+  figure)
+
+The "This"/"Last" rows and their delta badge only show up when there's an exact
+same-month match; the "Total" row shows up independently whenever any prior-year data
+exists at all, even without a month match. If there's no prior-year data at all, the bar
+simply doesn't appear — nothing breaks, no error.
 
 ### Bar / pie chart toggle
 
 The two small icon buttons in the header (next to **Update data**) switch every metric
 tile's visualization between horizontal bars and small pie charts. The choice is
 remembered per-browser (via `localStorage`), not per-account.
+
+### Inspecting a tile up close
+
+Click (or focus + Enter/Space) any metric tile on the Quality or Utilities & Efficiency
+pages to see it enlarged — up to 400% (4×), automatically capped so it never overflows
+the screen on smaller windows. Click the dimmed background, or press Escape, to close it.
+It's an exact clone of the tile as currently rendered, so it works correctly in both bar
+and pie chart mode.
 
 ## Notes on a couple of judgment calls
 

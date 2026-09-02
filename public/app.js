@@ -436,38 +436,65 @@
   function buildYoyStat(kpiRows) {
     const month = state.snapshot.month;
     const priorYear = state.priorYear && state.priorYear[month];
-    if (!priorYear) return "";
+    const kpiName = "Plan Attainment";
+    const thisYearRow = findKpi(kpiRows, kpiName);
+    const lastYearRow = priorYear && (priorYear.rows || []).find((r) => r.kpi === kpiName);
+    const hasMonthMatch = thisYearRow && lastYearRow && thisYearRow.actualMonth != null && lastYearRow.actualMonth != null;
 
-    const thisYearRow = findKpi(kpiRows, "Plan Attainment");
-    const lastYearRow = (priorYear.rows || []).find((r) => r.kpi === "Plan Attainment");
-    if (!thisYearRow || !lastYearRow || thisYearRow.actualMonth == null || lastYearRow.actualMonth == null) return "";
+    const annualTotal = priorYearAnnualTotal(kpiName);
 
-    const thisPct = scaleKpiPercent(thisYearRow.actualMonth, "Plan Attainment");
-    const lastPct = scaleKpiPercent(lastYearRow.actualMonth, "Plan Attainment");
-    const deltaPp = thisPct - lastPct;
-    const g = deltaPp >= 0 ? "good" : "bad";
-    const maxScale = Math.max(thisPct, lastPct, 1) * 1.15;
-    const thisBarPct = Math.min(100, (thisPct / maxScale) * 100);
-    const lastBarPct = Math.min(100, (lastPct / maxScale) * 100);
+    if (!hasMonthMatch && annualTotal == null) return "";
+
+    const thisPct = hasMonthMatch ? scaleKpiPercent(thisYearRow.actualMonth, kpiName) : null;
+    const lastPct = hasMonthMatch ? scaleKpiPercent(lastYearRow.actualMonth, kpiName) : null;
+    const totalPct = annualTotal != null ? scaleKpiPercent(annualTotal, kpiName) : null;
+    const deltaPp = hasMonthMatch ? thisPct - lastPct : null;
+    const g = deltaPp != null ? (deltaPp >= 0 ? "good" : "bad") : "flat";
+
+    const scaleValues = [thisPct, lastPct, totalPct].filter((v) => v != null);
+    const maxScale = Math.max(...scaleValues, 1) * 1.15;
+    const barPct = (v) => (v == null ? 0 : Math.min(100, (v / maxScale) * 100));
+
+    const rows = [];
+    if (hasMonthMatch) {
+      rows.push(["This", "this-year", thisPct]);
+      rows.push(["Last", "last-year", lastPct]);
+    }
+    if (totalPct != null) {
+      rows.push(["Total", "total-year", totalPct]);
+    }
+
+    const barsHtml = rows.map(([label, cls, pct]) => `
+      <div class="yoy-bar-row">
+        <span class="yl">${label}</span>
+        <div class="yoy-bar-track"><div class="yoy-bar-fill ${cls}" style="width:${barPct(pct)}%"></div></div>
+        <span class="yv">${pct.toFixed(1)}%</span>
+      </div>
+    `).join("");
+
+    const kicker = hasMonthMatch ? `vs ${month} last year` : "vs last year";
+    const chipHtml = deltaPp != null
+      ? `<span class="chip ${g}">${deltaPp >= 0 ? "+" : "\u2212"}${Math.abs(deltaPp).toFixed(1)}pp YoY</span>`
+      : "";
 
     return `
       <div class="hero-stat yoy-stat">
-        <span class="k">vs ${month} last year</span>
-        <div class="yoy-bars">
-          <div class="yoy-bar-row">
-            <span class="yl">This</span>
-            <div class="yoy-bar-track"><div class="yoy-bar-fill this-year" style="width:${thisBarPct}%"></div></div>
-            <span class="yv">${thisPct.toFixed(1)}%</span>
-          </div>
-          <div class="yoy-bar-row">
-            <span class="yl">Last</span>
-            <div class="yoy-bar-track"><div class="yoy-bar-fill last-year" style="width:${lastBarPct}%"></div></div>
-            <span class="yv">${lastPct.toFixed(1)}%</span>
-          </div>
-        </div>
-        <span class="chip ${g}">${deltaPp >= 0 ? "+" : "\u2212"}${Math.abs(deltaPp).toFixed(1)}pp YoY</span>
+        <span class="k">${kicker}</span>
+        <div class="yoy-bars">${barsHtml}</div>
+        ${chipHtml}
       </div>
     `;
+  }
+
+  // Last year's full-year total for a KPI — the YTD value from whichever
+  // saved prior-year month is chronologically latest, since YTD-at-that-point
+  // already is the cumulative total once it's the final populated month.
+  function priorYearAnnualTotal(kpiName) {
+    const months = Object.keys(state.priorYear || {});
+    if (!months.length) return null;
+    const latest = [...months].sort((a, b) => MONTH_FULL_LIST.indexOf(b) - MONTH_FULL_LIST.indexOf(a))[0];
+    const row = (state.priorYear[latest].rows || []).find((r) => r.kpi === kpiName);
+    return row ? row.actualYtd : null;
   }
 
   function renderMetricTile(row) {
@@ -478,6 +505,9 @@
 
     const el = document.createElement("div");
     el.className = "metric-tile";
+    el.tabIndex = 0;
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", `Inspect ${row.kpi}`);
     el.innerHTML = `
       <div class="mt-top">
         <span class="mt-name" title="${row.kpi}">${row.kpi}<span class="unit">${row.unit || ""}</span></span>
@@ -925,9 +955,11 @@
     try {
       const wb = await readWorkbook(file);
       const parsed = parseKpiWorkbook(wb);
-      pending.priorYear = { file, parsed };
+      const history = parseKpiHistoryWorkbook(wb);
+      pending.priorYear = { file, parsed, history };
       fillDropzone("#dzPriorYear", file);
-      toast(`Read ${parsed.rows.length} prior-year KPI rows for ${parsed.monthFull || parsed.month}.`, "ok");
+      const monthCount = Object.keys(history).length || 1;
+      toast(`Read prior-year KPI history — ${monthCount} month${monthCount === 1 ? "" : "s"} found, covering ${parsed.monthFull || parsed.month}.`, "ok");
     } catch (err) {
       toast(err.message, "err");
       resetDropzone("#dzPriorYear");
@@ -975,6 +1007,39 @@
     $("#uploadModal").classList.add("hidden");
   }
 
+  // Click (or Enter/Space) any metric tile to inspect it enlarged — clones
+  // the tile exactly as currently rendered (so it works in both bar and pie
+  // chart mode) into a centered overlay, scaled up to 400% but capped so it
+  // never overflows the viewport on smaller screens.
+  function openTileZoom(tileEl) {
+    const stage = $("#tileZoomStage");
+    stage.innerHTML = "";
+    const clone = tileEl.cloneNode(true);
+    clone.removeAttribute("tabindex");
+    clone.removeAttribute("role");
+    stage.appendChild(clone);
+
+    const rect = tileEl.getBoundingClientRect();
+    const maxScaleW = (window.innerWidth * 0.88) / rect.width;
+    const maxScaleH = (window.innerHeight * 0.85) / rect.height;
+    const scale = Math.max(1, Math.min(4, maxScaleW, maxScaleH));
+    stage.style.width = rect.width + "px";
+    stage.style.setProperty("--zoom-scale", scale);
+
+    const overlay = $("#tileZoomOverlay");
+    overlay.classList.remove("hidden");
+    requestAnimationFrame(() => overlay.classList.add("open"));
+  }
+
+  function closeTileZoom() {
+    const overlay = $("#tileZoomOverlay");
+    overlay.classList.remove("open");
+    setTimeout(() => {
+      overlay.classList.add("hidden");
+      $("#tileZoomStage").innerHTML = "";
+    }, 160);
+  }
+
   async function saveUpload() {
     if (!pending.kpi && !pending.plan && !pending.priorYear) return;
     const btn = $("#saveUploadBtn");
@@ -984,9 +1049,21 @@
       let backfilled = 0;
 
       // Prior-year comparison data is independent of the current month —
-      // save it even if no current-year files were also dropped in.
+      // save it even if no current-year files were also dropped in. Save
+      // every month the Actual/BU/YTD tabs have real data for, same as the
+      // current-year backfill, so the YoY comparison works for whichever
+      // month you're viewing (and a full-year total becomes available too).
+      let priorYearMonthsSaved = 0;
       if (pending.priorYear) {
-        await savePriorYear(pending.priorYear.parsed.monthFull, pending.priorYear.parsed.rows);
+        const py = pending.priorYear;
+        const monthsToSave = { ...(py.history || {}) };
+        if (py.parsed.monthFull && !monthsToSave[py.parsed.monthFull]) {
+          monthsToSave[py.parsed.monthFull] = py.parsed.rows;
+        }
+        for (const [m, rows] of Object.entries(monthsToSave)) {
+          await savePriorYear(m, rows);
+          priorYearMonthsSaved++;
+        }
         await loadPriorYear();
       }
 
@@ -1049,12 +1126,10 @@
 
       renderMonthSelect();
       renderAll();
-      toast(
-        backfilled > 0
-          ? `Dashboard updated — also backfilled ${backfilled} earlier month${backfilled === 1 ? "" : "s"} of history.`
-          : "Dashboard updated for the whole team.",
-        "ok"
-      );
+      const parts = [];
+      if (backfilled > 0) parts.push(`backfilled ${backfilled} earlier month${backfilled === 1 ? "" : "s"} of history`);
+      if (priorYearMonthsSaved > 0) parts.push(`saved ${priorYearMonthsSaved} month${priorYearMonthsSaved === 1 ? "" : "s"} of last year's data for comparison`);
+      toast(parts.length ? `Dashboard updated — also ${parts.join(" and ")}.` : "Dashboard updated for the whole team.", "ok");
       closeUploadModal();
       pending.kpi = null; pending.plan = null; pending.priorYear = null;
       resetDropzone("#dzKpi"); resetDropzone("#dzPlan"); resetDropzone("#dzPriorYear");
@@ -1184,6 +1259,23 @@
     $("#chartStylePie").classList.toggle("active", state.chartStyle === "pie");
     $("#chartStyleBar").addEventListener("click", () => setChartStyle("bar"));
     $("#chartStylePie").addEventListener("click", () => setChartStyle("pie"));
+
+    document.addEventListener("click", (e) => {
+      const tile = e.target.closest(".metric-tile");
+      if (!tile || tile.closest("#tileZoomStage")) return;
+      openTileZoom(tile);
+    });
+    document.addEventListener("keydown", (e) => {
+      if ((e.key === "Enter" || e.key === " ") && document.activeElement && document.activeElement.classList.contains("metric-tile")) {
+        e.preventDefault();
+        openTileZoom(document.activeElement);
+      } else if (e.key === "Escape" && $("#tileZoomOverlay").classList.contains("open")) {
+        closeTileZoom();
+      }
+    });
+    $("#tileZoomOverlay").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeTileZoom();
+    });
   }
 
   function setChartStyle(style) {
