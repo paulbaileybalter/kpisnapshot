@@ -41,6 +41,23 @@
 
   const TYPE_ORDER = ["Quality", "Utilities", "Efficiency"];
 
+  // Groups of closely-related KPIs that consolidate into a single card with
+  // an internal toggle, instead of one card each — cuts down card count and
+  // keeps near-duplicate metrics from crowding a page. Add more groups here
+  // the same way to consolidate other metric families later.
+  const METRIC_GROUPS = [
+    {
+      title: "Consumer Complaints",
+      variants: [
+        { key: "total", label: "Total", kpi: "Consumer Complaints (Total)" },
+        { key: "cans", label: "Cans/Bottles", kpi: "Consumer Complaints (Cans and Bottles)" },
+        { key: "kegs", label: "Kegs", kpi: "Consumer Complaints (Kegs)" },
+        { key: "ratio", label: "Ratio", kpi: "Consumer Complaints Ratio (Total)" },
+      ],
+    },
+  ];
+  const GROUPED_KPI_NAMES = new Set(METRIC_GROUPS.flatMap((g) => g.variants.map((v) => v.kpi)));
+
   const MONTH_ABBR_TO_FULL = {
     Jan: "January", Feb: "February", Mar: "March", Apr: "April", May: "May", Jun: "June",
     Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December",
@@ -112,7 +129,12 @@
     if (unit === "%") return sign + scaleKpiPercent(abs, kpiName).toFixed(1) + " pp";
     if (unit === "$") return sign + "$" + fmtNumber(abs, 0);
     if (unit === "#") return sign + fmtNumber(abs, 2);
-    return sign + fmtNumber(abs, 2) + (unit ? " " + unit : "");
+    // Most units (PPM/hL, kg/hL, etc.) are short enough to show in a compact
+    // badge, but a couple of the source workbook's unit labels are full
+    // phrases (e.g. "% Change vs PY") — those stay off the badge and rely on
+    // the fuller "target ..." text already shown in the tile body instead.
+    const suffix = unit && unit.length <= 10 ? " " + unit : "";
+    return sign + fmtNumber(abs, 2) + suffix;
   }
 
   function goodness(direction, varValue) {
@@ -613,14 +635,108 @@
       const count = $(".count", section);
       grid.innerHTML = "";
       const rows = kpiRows.filter((r) => r.type === type);
-      count.textContent = rows.length ? `${rows.length} metrics` : "";
       if (!rows.length) {
         section.classList.add("hidden");
+        count.textContent = "";
         return;
       }
       section.classList.remove("hidden");
-      rows.forEach((row) => grid.appendChild(renderMetricTile(row)));
+
+      // Rows belonging to a METRIC_GROUPS entry render as one consolidated
+      // card (with an internal toggle) instead of one card each; everything
+      // else renders as a normal tile, in its original order.
+      const usedIndices = new Set();
+      let cardCount = 0;
+      rows.forEach((row, idx) => {
+        if (usedIndices.has(idx)) return;
+        const group = METRIC_GROUPS.find((g) => g.variants.some((v) => v.kpi === row.kpi));
+        if (!group) {
+          grid.appendChild(renderMetricTile(row));
+          cardCount++;
+          return;
+        }
+        const variantRows = group.variants
+          .map((v) => {
+            const r = rows.find((rr) => rr.kpi === v.kpi);
+            return r ? { ...v, row: r } : null;
+          })
+          .filter(Boolean);
+        rows.forEach((rr, rIdx) => {
+          if (variantRows.some((v) => v.row === rr)) usedIndices.add(rIdx);
+        });
+        if (variantRows.length > 1) {
+          grid.appendChild(renderGroupTile(group.title, variantRows));
+        } else if (variantRows.length === 1) {
+          grid.appendChild(renderMetricTile(variantRows[0].row));
+        }
+        cardCount++;
+      });
+      count.textContent = `${cardCount} metric${cardCount === 1 ? "" : "s"}`;
     });
+  }
+
+  // One card covering several closely-related KPIs (e.g. Consumer Complaints
+  // by channel), switched via a small internal toggle instead of showing one
+  // card per variant. Reuses the same period/bar rendering as a normal tile,
+  // so it automatically works in both bar and pie chart mode.
+  function renderGroupTile(title, variantRows) {
+    const el = document.createElement("div");
+    el.className = "metric-tile metric-tile-group";
+    el.tabIndex = 0;
+    el.setAttribute("role", "button");
+    el.setAttribute("aria-label", `Inspect ${title}`);
+
+    const defaultVariant = variantRows.find((v) => v.key === "total") || variantRows[0];
+
+    el.innerHTML = `
+      <div class="mt-top">
+        <span class="mt-name">${title}</span>
+        <span class="mt-badge" data-role="badge"></span>
+      </div>
+      <div class="mt-group-toggle" role="tablist">
+        ${variantRows.map((v) => `
+          <button type="button" class="mt-group-toggle-btn${v.key === defaultVariant.key ? " active" : ""}"
+            data-variant="${v.key}" role="tab" aria-selected="${v.key === defaultVariant.key}">${v.label}</button>
+        `).join("")}
+      </div>
+      <div class="mt-group-body"></div>
+    `;
+
+    function paint(variantKey) {
+      const variant = variantRows.find((v) => v.key === variantKey) || defaultVariant;
+      const row = variant.row;
+      const direction = KPI_DIRECTION[row.kpi] || "higher";
+      const gMonth = goodness(direction, row.varMonth);
+      const gYtd = goodness(direction, row.varYtd);
+      const badgeClass = gMonth === "flat" ? "flat" : gMonth;
+
+      const badge = el.querySelector('[data-role="badge"]');
+      badge.className = `mt-badge ${badgeClass}`;
+      badge.textContent = fmtKpiDelta(row.varMonth, row.unit, row.kpi);
+
+      el.querySelector(".mt-group-body").innerHTML = `
+        ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
+        ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+        ${renderTileYoyPeriod(row)}
+      `;
+    }
+
+    paint(defaultVariant.key);
+
+    el.querySelectorAll(".mt-group-toggle-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        el.querySelectorAll(".mt-group-toggle-btn").forEach((b) => {
+          b.classList.remove("active");
+          b.setAttribute("aria-selected", "false");
+        });
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+        paint(btn.dataset.variant);
+      });
+    });
+
+    return el;
   }
 
   function renderProduction() {
@@ -1284,7 +1400,7 @@
 
     document.addEventListener("click", (e) => {
       const tile = e.target.closest(".metric-tile");
-      if (!tile || tile.closest("#tileZoomStage")) return;
+      if (!tile || tile.closest("#tileZoomStage") || e.target.closest(".mt-group-toggle-btn")) return;
       openTileZoom(tile);
     });
     document.addEventListener("keydown", (e) => {

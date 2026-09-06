@@ -189,6 +189,23 @@ The two small icon buttons in the header (next to **Update data**) switch every 
 tile's visualization between horizontal bars and small pie charts. The choice is
 remembered per-browser (via `localStorage`), not per-account.
 
+### Consolidated metric cards
+
+A few closely-related KPIs share one card instead of getting one each, to cut down on
+card count and keep near-duplicates from crowding a page — right now that's the four
+Consumer Complaints variants (Cans/Bottles, Kegs, Total, and the PPM/hL Ratio) on the
+Quality page, shown as a single "Consumer Complaints" card with a small toggle to switch
+between them. Everything else about the card — the bars, the pie mode, the "vs Last Year"
+comparison, clicking to zoom — works exactly like a normal tile; only the toggle is new,
+and clicking it switches variants without affecting the zoom-to-inspect click on the rest
+of the card.
+
+To consolidate another set of related metrics the same way, add an entry to
+`METRIC_GROUPS` near the top of `public/app.js` — each entry just needs a title and a list
+of `{ key, label, kpi }` variants naming the exact KPI rows to combine. A group renders
+automatically wherever 2+ of its named KPIs are present that month; if only one is present,
+it falls back to a normal single tile so nothing goes missing.
+
 ### Inspecting a tile up close
 
 Click (or focus + Enter/Space) any metric tile on the Quality, Utilities, or Efficiency

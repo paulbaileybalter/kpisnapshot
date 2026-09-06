@@ -278,6 +278,15 @@ header{
 .mt-yoy-badge.good{background:var(--good-bg); color:var(--good);}
 .mt-yoy-badge.bad{background:var(--bad-bg); color:var(--bad);}
 .mt-yoy-badge.flat{background:var(--wash); color:var(--muted);}
+
+.mt-group-toggle{display:flex; flex-wrap:wrap; gap:3px; margin-top:2px;}
+.mt-group-toggle-btn{
+  font-family:var(--font-mono); font-size:9px; font-weight:600; letter-spacing:.02em;
+  padding:2px 7px; border-radius:999px; border:1px solid var(--line); background:#fff;
+  color:var(--muted); cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+}
+.mt-group-toggle-btn:hover{border-color:var(--purple); color:var(--ink);}
+.mt-group-toggle-btn.active{background:var(--ink); border-color:var(--ink); color:#fff;}
 .mt-actual{font-family:var(--font-display); font-size:14.5px; font-weight:700;}
 .mt-period{margin-top:2px;}
 .mt-period-head{font-family:var(--font-mono); font-size:8.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);}
