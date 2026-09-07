@@ -252,7 +252,7 @@ header{
 /* ---------- Metric tiles (each category now has a full page to itself) ---------- */
 .metric-tile-grid{
   flex:1 1 auto; min-height:0; overflow-y:auto; padding:11px;
-  display:grid; grid-template-columns:repeat(auto-fill, minmax(222px, 1fr)); gap:8px; align-content:start;
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:8px; align-content:start;
 }
 .metric-tile{
   background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:7px 12px;
