@@ -234,9 +234,9 @@ it falls back to a normal single tile so nothing goes missing.
 Click (or focus + Enter/Space) any metric tile on the Quality, Utilities, or Efficiency
 pages to see it enlarged — up to 200% (2×), automatically capped so it never overflows
 the screen on smaller windows. Click the dimmed background, or press Escape, to close it.
-It's rebuilt fresh from the same data (not a clone of the compact tile's markup) so it
-works correctly in both bar and pie chart mode, and — see below — can show a richer
-"Year to date" section than the compact card has room for.
+It's rebuilt fresh from the same data (not a clone of the compact tile's markup) — mainly
+so it works correctly in both bar and pie chart mode, since a clone wouldn't pick up a
+chart-style change made while the tile was zoomed.
 
 While zoomed, press the **Left/Right arrow keys**, or click the round **prev/next
 buttons** at the edges of the screen, to move to the neighboring tile on the same page
@@ -245,11 +245,11 @@ without closing the overlay — it cycles through every tile on whichever page y
 first and vice versa. The buttons hide themselves automatically if a page only has one
 tile, since there'd be nothing to navigate to.
 
-### Trend chart on zoom
+### Trend chart
 
-The zoomed view replaces the "Year to date" bar with a small line chart plotting that
-KPI's actual value across the last 6-7 months (whichever months have been saved — a KPI
-with less history just shows however many months exist, with a plain note if there's only
+Every metric tile's "Year to date" bar is a small line chart instead, plotting that KPI's
+actual value across the last 6-7 months (whichever months have been saved — a KPI with
+less history just shows however many months exist, with a plain note if there's only
 one), with a dashed horizontal line marking the target. "This month" and "vs Last Year"
 stay as bars — a trend chart is for showing direction over time, which is exactly what a
 single bar can't do, but a two-number comparison (this month vs last year) is still best
@@ -257,12 +257,13 @@ served by a bar. The line is a single color the whole way across — teal if the
 month is on the right side of target, orange if not — rather than color-coded per
 segment, to stay legible at this size.
 
-The compact tile in the grid is untouched; the chart only exists in the zoomed view, since
-a 6-7 point trend needs more room than the tile has to spare, and reworking the whole
-tile layout to fit one felt like the wrong trade against the "fit without scrolling" work
-that's already been through several rounds. For a consolidated group card (Consumer
-Complaints, Line Efficiency), switching the toggle while zoomed in reloads the chart for
-whichever KPI is now selected — confirmed working, not just cloned-and-frozen.
+This was originally zoomed-view-only — the compact grid didn't have room for a 6-7 point
+trend back when each page had 9-12 cards. Once the consolidated group cards (see above)
+got that down to 4 cards per page, there was enough room to spare that the compact tiles
+now show the same chart as the zoomed view, not a separate simplified version — confirmed
+still fits every tested screen size with room to spare. For a consolidated group card
+(Consumer Complaints, Line Efficiency), switching the toggle reloads the chart for
+whichever KPI is now selected, whether or not the tile is zoomed.
 
 Underlying data comes from the same monthly snapshots already saved for the month
 switcher and prior-year backfill — nothing new to upload. Each month's data is fetched

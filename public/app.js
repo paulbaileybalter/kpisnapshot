@@ -655,11 +655,9 @@
     `;
   }
 
-  function renderMetricTile(row, opts) {
-    const forZoom = !!(opts && opts.forZoom);
+  function renderMetricTile(row) {
     const direction = KPI_DIRECTION[row.kpi] || "higher";
     const gMonth = goodness(direction, row.varMonth);
-    const gYtd = goodness(direction, row.varYtd);
     const badgeClass = gMonth === "flat" ? "flat" : gMonth;
 
     const el = document.createElement("div");
@@ -673,14 +671,14 @@
         <span class="mt-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
       </div>
       ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
-      ${forZoom ? renderTrendPlaceholder(row.kpi, row.unit) : renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+      ${renderTrendPlaceholder(row.kpi, row.unit)}
       ${renderTileYoyPeriod(row)}
     `;
     // Stashed (not just for zoom's own clone-free rebuild, but also so a
     // later re-render of the zoom overlay for the same tile doesn't need
     // the caller to have kept a reference to the row separately).
     el.__row = row;
-    if (forZoom) loadTrendInto(el, row.kpi, row.unit);
+    loadTrendInto(el, row.kpi, row.unit);
     return el;
   }
 
@@ -855,7 +853,7 @@
   // caller can trigger an initial render; wiring alone doesn't repaint,
   // since a freshly cloned zoom copy should keep showing whatever variant
   // was already selected rather than jumping back to the default.
-  function wireGroupToggle(containerEl, variantRows, forZoom) {
+  function wireGroupToggle(containerEl, variantRows) {
     const defaultVariant = variantRows.find((v) => v.key === "total") || variantRows[0];
 
     function paint(variantKey) {
@@ -863,7 +861,6 @@
       const row = variant.row;
       const direction = KPI_DIRECTION[row.kpi] || "higher";
       const gMonth = goodness(direction, row.varMonth);
-      const gYtd = goodness(direction, row.varYtd);
       const badgeClass = gMonth === "flat" ? "flat" : gMonth;
 
       const badge = containerEl.querySelector('[data-role="badge"]');
@@ -872,13 +869,11 @@
 
       containerEl.querySelector(".mt-group-body").innerHTML = `
         ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
-        ${forZoom ? renderTrendPlaceholder(row.kpi, row.unit) : renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+        ${renderTrendPlaceholder(row.kpi, row.unit)}
         ${renderTileYoyPeriod(row)}
       `;
-      if (forZoom) {
-        const wrap = containerEl.querySelector(".mt-trend-wrap");
-        if (wrap) loadTrendInto(wrap, row.kpi, row.unit);
-      }
+      const wrap = containerEl.querySelector(".mt-trend-wrap");
+      if (wrap) loadTrendInto(wrap, row.kpi, row.unit);
     }
 
     containerEl.querySelectorAll(".mt-group-toggle-btn").forEach((btn) => {
@@ -898,7 +893,6 @@
   }
 
   function renderGroupTile(title, variantRows, opts) {
-    const forZoom = !!(opts && opts.forZoom);
     const el = document.createElement("div");
     el.className = "metric-tile metric-tile-group";
     el.tabIndex = 0;
@@ -924,7 +918,7 @@
       <div class="mt-group-body"></div>
     `;
 
-    const paint = wireGroupToggle(el, variantRows, forZoom);
+    const paint = wireGroupToggle(el, variantRows);
     paint(defaultVariant.key);
 
     // Stashed so opening zoom can rebuild this tile from scratch (rather
@@ -1356,17 +1350,18 @@
     const stage = $("#tileZoomStage");
     stage.innerHTML = "";
 
-    // Rebuilt from scratch (forZoom:true) rather than cloned — cloneNode
-    // would carry over the compact bar instead of the trend chart, and
-    // wouldn't inherit event listeners either. The currently-active toggle
-    // variant (for group tiles) is preserved so zooming in doesn't reset it.
+    // Rebuilt from scratch rather than cloned — cloneNode wouldn't inherit
+    // event listeners (the group toggle wouldn't work), and rebuilding lets
+    // this reuse the exact same render functions as the compact grid. The
+    // currently-active toggle variant (for group tiles) is preserved so
+    // zooming in doesn't reset it.
     let zoomedTile;
     if (tileEl.classList.contains("metric-tile-group") && tileEl.__groupVariantRows) {
       const activeBtn = tileEl.querySelector(".mt-group-toggle-btn.active");
       const initialVariantKey = activeBtn ? activeBtn.dataset.variant : null;
-      zoomedTile = renderGroupTile(tileEl.__groupTitle, tileEl.__groupVariantRows, { forZoom: true, initialVariantKey });
+      zoomedTile = renderGroupTile(tileEl.__groupTitle, tileEl.__groupVariantRows, { initialVariantKey });
     } else if (tileEl.__row) {
-      zoomedTile = renderMetricTile(tileEl.__row, { forZoom: true });
+      zoomedTile = renderMetricTile(tileEl.__row);
     } else {
       // Safety net: should never happen, but better a plain clone than a
       // blank overlay if a tile somehow wasn't stashed with its data.
