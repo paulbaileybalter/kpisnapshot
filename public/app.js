@@ -416,6 +416,7 @@
     skuSort: { key: "diff", dir: "desc" },
     chartStyle: (localStorage.getItem("kpisnapshot_chart_style") === "pie") ? "pie" : "bar",
     priorYear: {}, // { "July": { rows: [...] }, ... } — same-month-last-year KPI rows, keyed by month
+    zoomedTileEl: null, // the original (compact) tile element currently shown zoomed, for prev/next navigation
   };
 
   function findKpi(rows, name) {
@@ -1344,7 +1345,14 @@
   // the tile exactly as currently rendered (so it works in both bar and pie
   // chart mode) into a centered overlay, scaled up to 200% but capped so it
   // never overflows the viewport on smaller screens.
+  // Every metric tile on whichever page is currently visible — the list
+  // arrow-key/button navigation cycles through while a tile is zoomed.
+  function getZoomableTiles() {
+    return [...document.querySelectorAll(".app-page:not(.hidden) .metric-tile")];
+  }
+
   function openTileZoom(tileEl) {
+    state.zoomedTileEl = tileEl;
     const stage = $("#tileZoomStage");
     stage.innerHTML = "";
 
@@ -1375,9 +1383,26 @@
     stage.style.width = rect.width + "px";
     stage.style.setProperty("--zoom-scale", scale);
 
+    // Prev/next only make sense with more than one tile to cycle through.
+    const canNavigate = getZoomableTiles().length > 1;
+    $("#tileZoomPrev").classList.toggle("hidden", !canNavigate);
+    $("#tileZoomNext").classList.toggle("hidden", !canNavigate);
+
     const overlay = $("#tileZoomOverlay");
     overlay.classList.remove("hidden");
     requestAnimationFrame(() => overlay.classList.add("open"));
+  }
+
+  // Cycles to the previous (-1) or next (+1) tile on the current page,
+  // wrapping around at either end, without closing and reopening the
+  // overlay — openTileZoom just swaps the stage's content in place.
+  function navigateZoom(delta) {
+    const tiles = getZoomableTiles();
+    if (tiles.length < 2) return;
+    let idx = tiles.indexOf(state.zoomedTileEl);
+    if (idx === -1) idx = 0;
+    const nextIdx = (idx + delta + tiles.length) % tiles.length;
+    openTileZoom(tiles[nextIdx]);
   }
 
   function closeTileZoom() {
@@ -1386,6 +1411,7 @@
     setTimeout(() => {
       overlay.classList.add("hidden");
       $("#tileZoomStage").innerHTML = "";
+      state.zoomedTileEl = null;
     }, 160);
   }
 
@@ -1621,10 +1647,21 @@
         openTileZoom(document.activeElement);
       } else if (e.key === "Escape" && $("#tileZoomOverlay").classList.contains("open")) {
         closeTileZoom();
+      } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && $("#tileZoomOverlay").classList.contains("open")) {
+        e.preventDefault();
+        navigateZoom(e.key === "ArrowLeft" ? -1 : 1);
       }
     });
     $("#tileZoomOverlay").addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closeTileZoom();
+    });
+    $("#tileZoomPrev").addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigateZoom(-1);
+    });
+    $("#tileZoomNext").addEventListener("click", (e) => {
+      e.stopPropagation();
+      navigateZoom(1);
     });
   }
 

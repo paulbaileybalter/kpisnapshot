@@ -238,6 +238,13 @@ It's rebuilt fresh from the same data (not a clone of the compact tile's markup)
 works correctly in both bar and pie chart mode, and — see below — can show a richer
 "Year to date" section than the compact card has room for.
 
+While zoomed, press the **Left/Right arrow keys**, or click the round **prev/next
+buttons** at the edges of the screen, to move to the neighboring tile on the same page
+without closing the overlay — it cycles through every tile on whichever page you had open
+(Quality, Utilities, or Efficiency independently), wrapping from the last tile back to the
+first and vice versa. The buttons hide themselves automatically if a page only has one
+tile, since there'd be nothing to navigate to.
+
 ### Trend chart on zoom
 
 The zoomed view replaces the "Year to date" bar with a small line chart plotting that
