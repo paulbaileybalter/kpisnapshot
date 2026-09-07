@@ -53,6 +53,37 @@
         { key: "cans", label: "Cans/Bottles", kpi: "Consumer Complaints (Cans and Bottles)" },
         { key: "kegs", label: "Kegs", kpi: "Consumer Complaints (Kegs)" },
         { key: "ratio", label: "Ratio", kpi: "Consumer Complaints Ratio (Total)" },
+        { key: "cc_cans", label: "CC Cans", kpi: "Total CC - Cans" },
+        { key: "controllable", label: "Controllable", kpi: "Controllable Complaints" },
+        { key: "keg_returns", label: "Keg Returns", kpi: "Keg Returns" },
+      ],
+    },
+    {
+      title: "Package Loss",
+      variants: [
+        { key: "total", label: "Total", kpi: "Total Package Loss" },
+        { key: "can", label: "Can", kpi: "Total Can Loss" },
+      ],
+    },
+    {
+      title: "Packaging Efficiency",
+      variants: [
+        { key: "me", label: "ME", kpi: "Packaging ME - Aggregated" },
+        { key: "ufe", label: "UFE", kpi: "Packaging UFE - Aggregated" },
+      ],
+    },
+    {
+      title: "Can Line",
+      variants: [
+        { key: "me", label: "ME", kpi: "Can Line ME" },
+        { key: "ufe", label: "UFE", kpi: "Can Line UFE" },
+      ],
+    },
+    {
+      title: "Keg Line",
+      variants: [
+        { key: "me", label: "ME", kpi: "Keg Line ME" },
+        { key: "ufe", label: "UFE", kpi: "Keg Line UFE" },
       ],
     },
   ];
@@ -691,6 +722,51 @@
   // by channel), switched via a small internal toggle instead of showing one
   // card per variant. Reuses the same period/bar rendering as a normal tile,
   // so it automatically works in both bar and pie chart mode.
+  // Wires toggle-button clicks for a consolidated group card's markup,
+  // wherever that markup lives (the live tile in the grid, or a cloned copy
+  // inside the zoom overlay — cloneNode doesn't carry over listeners, so the
+  // clone needs its own call to this too). Returns the paint function so the
+  // caller can trigger an initial render; wiring alone doesn't repaint,
+  // since a freshly cloned zoom copy should keep showing whatever variant
+  // was already selected rather than jumping back to the default.
+  function wireGroupToggle(containerEl, variantRows) {
+    const defaultVariant = variantRows.find((v) => v.key === "total") || variantRows[0];
+
+    function paint(variantKey) {
+      const variant = variantRows.find((v) => v.key === variantKey) || defaultVariant;
+      const row = variant.row;
+      const direction = KPI_DIRECTION[row.kpi] || "higher";
+      const gMonth = goodness(direction, row.varMonth);
+      const gYtd = goodness(direction, row.varYtd);
+      const badgeClass = gMonth === "flat" ? "flat" : gMonth;
+
+      const badge = containerEl.querySelector('[data-role="badge"]');
+      badge.className = `mt-badge ${badgeClass}`;
+      badge.textContent = fmtKpiDelta(row.varMonth, row.unit, row.kpi);
+
+      containerEl.querySelector(".mt-group-body").innerHTML = `
+        ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
+        ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+        ${renderTileYoyPeriod(row)}
+      `;
+    }
+
+    containerEl.querySelectorAll(".mt-group-toggle-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        containerEl.querySelectorAll(".mt-group-toggle-btn").forEach((b) => {
+          b.classList.remove("active");
+          b.setAttribute("aria-selected", "false");
+        });
+        btn.classList.add("active");
+        btn.setAttribute("aria-selected", "true");
+        paint(btn.dataset.variant);
+      });
+    });
+
+    return paint;
+  }
+
   function renderGroupTile(title, variantRows) {
     const el = document.createElement("div");
     el.className = "metric-tile metric-tile-group";
@@ -714,39 +790,13 @@
       <div class="mt-group-body"></div>
     `;
 
-    function paint(variantKey) {
-      const variant = variantRows.find((v) => v.key === variantKey) || defaultVariant;
-      const row = variant.row;
-      const direction = KPI_DIRECTION[row.kpi] || "higher";
-      const gMonth = goodness(direction, row.varMonth);
-      const gYtd = goodness(direction, row.varYtd);
-      const badgeClass = gMonth === "flat" ? "flat" : gMonth;
-
-      const badge = el.querySelector('[data-role="badge"]');
-      badge.className = `mt-badge ${badgeClass}`;
-      badge.textContent = fmtKpiDelta(row.varMonth, row.unit, row.kpi);
-
-      el.querySelector(".mt-group-body").innerHTML = `
-        ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
-        ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
-        ${renderTileYoyPeriod(row)}
-      `;
-    }
-
+    const paint = wireGroupToggle(el, variantRows);
     paint(defaultVariant.key);
 
-    el.querySelectorAll(".mt-group-toggle-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        el.querySelectorAll(".mt-group-toggle-btn").forEach((b) => {
-          b.classList.remove("active");
-          b.setAttribute("aria-selected", "false");
-        });
-        btn.classList.add("active");
-        btn.setAttribute("aria-selected", "true");
-        paint(btn.dataset.variant);
-      });
-    });
+    // Stashed so the zoom overlay's clone (which doesn't inherit event
+    // listeners from cloneNode) can re-wire its own working toggle buttons.
+    el.__groupVariantRows = variantRows;
+
 
     return el;
   }
@@ -1167,6 +1217,14 @@
     clone.removeAttribute("tabindex");
     clone.removeAttribute("role");
     stage.appendChild(clone);
+
+    // cloneNode copies markup but not event listeners, so a consolidated
+    // group tile's toggle buttons would otherwise do nothing once zoomed —
+    // re-wire them on the clone, without repainting, so it keeps showing
+    // whatever variant was already selected before zooming in.
+    if (tileEl.classList.contains("metric-tile-group") && tileEl.__groupVariantRows) {
+      wireGroupToggle(clone, tileEl.__groupVariantRows);
+    }
 
     const rect = tileEl.getBoundingClientRect();
     const maxScaleW = (window.innerWidth * 0.88) / rect.width;

@@ -192,13 +192,31 @@ remembered per-browser (via `localStorage`), not per-account.
 ### Consolidated metric cards
 
 A few closely-related KPIs share one card instead of getting one each, to cut down on
-card count and keep near-duplicates from crowding a page — right now that's the four
-Consumer Complaints variants (Cans/Bottles, Kegs, Total, and the PPM/hL Ratio) on the
-Quality page, shown as a single "Consumer Complaints" card with a small toggle to switch
-between them. Everything else about the card — the bars, the pie mode, the "vs Last Year"
-comparison, clicking to zoom — works exactly like a normal tile; only the toggle is new,
-and clicking it switches variants without affecting the zoom-to-inspect click on the rest
-of the card.
+card count and keep near-duplicates from crowding a page — right now that's seven
+complaint-related KPIs on the Quality page (Consumer Complaints Total/Cans & Bottles/Kegs,
+its PPM/hL Ratio, the Cans-only breakdown, Controllable Complaints, and Keg Returns),
+shown as a single "Consumer Complaints" card with a small toggle to switch between them.
+Everything else about the card — the bars, the pie mode, the "vs Last Year" comparison —
+works exactly like a normal tile; only the toggle is new, and clicking it switches
+variants without affecting the zoom-to-inspect click on the rest of the card. The toggle
+also works correctly once the card is zoomed in (clicking a toggle inside the zoomed view
+switches its content too, independent of whatever's selected in the small card behind it).
+
+Not every variant shows up every month — "CC Cans" (the cans-only breakdown) only comes
+from the workbook's `KPI - Actual` history tabs, not the curated `KPI - Dash` tab, so it
+only appears on months backfilled through that route, not on the "live" current month.
+That's expected, not a bug — the card only shows toggles for whichever variants actually
+have data for the month you're viewing.
+
+The Efficiency page has four more groups, each pairing two related metrics: "Package
+Loss" (Total Package Loss / Total Can Loss), "Packaging Efficiency" (ME / UFE), "Can Line"
+(ME / UFE), and "Keg Line" (ME / UFE). "Package Loss" has the same "only on backfilled
+months" caveat as CC Cans above — "Total Can Loss" isn't in the curated `KPI - Dash` tab
+either, so on the live current month that card falls back to a normal single tile showing
+just Total Package Loss (still correct, just not a toggle, since there's nothing to toggle
+to yet); it becomes a real two-way toggle once you're viewing a backfilled month where
+both variants are present. This "falls back to a plain tile when only one variant has
+data" behavior applies to every group, not just this one.
 
 To consolidate another set of related metrics the same way, add an entry to
 `METRIC_GROUPS` near the top of `public/app.js` — each entry just needs a title and a list
