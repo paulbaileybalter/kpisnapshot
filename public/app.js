@@ -66,24 +66,14 @@
       ],
     },
     {
-      title: "Packaging Efficiency",
+      title: "Line Efficiency",
       variants: [
-        { key: "me", label: "ME", kpi: "Packaging ME - Aggregated" },
-        { key: "ufe", label: "UFE", kpi: "Packaging UFE - Aggregated" },
-      ],
-    },
-    {
-      title: "Can Line",
-      variants: [
-        { key: "me", label: "ME", kpi: "Can Line ME" },
-        { key: "ufe", label: "UFE", kpi: "Can Line UFE" },
-      ],
-    },
-    {
-      title: "Keg Line",
-      variants: [
-        { key: "me", label: "ME", kpi: "Keg Line ME" },
-        { key: "ufe", label: "UFE", kpi: "Keg Line UFE" },
+        { key: "pkg_me", label: "Packaging ME", kpi: "Packaging ME - Aggregated" },
+        { key: "pkg_ufe", label: "Packaging UFE", kpi: "Packaging UFE - Aggregated" },
+        { key: "can_me", label: "Can ME", kpi: "Can Line ME" },
+        { key: "can_ufe", label: "Can UFE", kpi: "Can Line UFE" },
+        { key: "keg_me", label: "Keg ME", kpi: "Keg Line ME" },
+        { key: "keg_ufe", label: "Keg UFE", kpi: "Keg Line UFE" },
       ],
     },
   ];

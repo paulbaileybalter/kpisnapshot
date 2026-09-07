@@ -208,15 +208,16 @@ only appears on months backfilled through that route, not on the "live" current 
 That's expected, not a bug — the card only shows toggles for whichever variants actually
 have data for the month you're viewing.
 
-The Efficiency page has four more groups, each pairing two related metrics: "Package
-Loss" (Total Package Loss / Total Can Loss), "Packaging Efficiency" (ME / UFE), "Can Line"
-(ME / UFE), and "Keg Line" (ME / UFE). "Package Loss" has the same "only on backfilled
-months" caveat as CC Cans above — "Total Can Loss" isn't in the curated `KPI - Dash` tab
-either, so on the live current month that card falls back to a normal single tile showing
-just Total Package Loss (still correct, just not a toggle, since there's nothing to toggle
-to yet); it becomes a real two-way toggle once you're viewing a backfilled month where
-both variants are present. This "falls back to a plain tile when only one variant has
-data" behavior applies to every group, not just this one.
+The Efficiency page has two more groups. "Package Loss" pairs Total Package Loss with
+Total Can Loss — it has the same "only on backfilled months" caveat as CC Cans above,
+since "Total Can Loss" isn't in the curated `KPI - Dash` tab either, so on the live
+current month that card falls back to a normal single tile showing just Total Package
+Loss (still correct, just not a toggle, since there's nothing to toggle to yet); it
+becomes a real two-way toggle once you're viewing a backfilled month where both variants
+are present. This "falls back to a plain tile when only one variant has data" behavior
+applies to every group, not just this one. "Line Efficiency" combines all six ME/UFE
+metrics into one card — Packaging, Can Line, and Keg Line, each with their ME and UFE
+figures — so instead of three separate two-way toggles, it's one six-way toggle.
 
 To consolidate another set of related metrics the same way, add an entry to
 `METRIC_GROUPS` near the top of `public/app.js` — each entry just needs a title and a list
