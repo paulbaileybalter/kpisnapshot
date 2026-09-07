@@ -909,13 +909,13 @@
         <span class="mt-name">${title}</span>
         <span class="mt-badge" data-role="badge"></span>
       </div>
+      <div class="mt-group-body"></div>
       <div class="mt-group-toggle" role="tablist">
         ${variantRows.map((v) => `
           <button type="button" class="mt-group-toggle-btn${v.key === defaultVariant.key ? " active" : ""}"
             data-variant="${v.key}" role="tab" aria-selected="${v.key === defaultVariant.key}">${v.label}</button>
         `).join("")}
       </div>
-      <div class="mt-group-body"></div>
     `;
 
     const paint = wireGroupToggle(el, variantRows);
