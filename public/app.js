@@ -55,7 +55,10 @@
         { key: "ratio", label: "Ratio", kpi: "Consumer Complaints Ratio (Total)" },
         { key: "cc_cans", label: "CC Cans", kpi: "Total CC - Cans" },
         { key: "controllable", label: "Controllable", kpi: "Controllable Complaints" },
+        { key: "controllable_ratio", label: "Controllable Ratio", kpi: "Controllable Complaints Ratio" },
         { key: "keg_returns", label: "Keg Returns", kpi: "Keg Returns" },
+        { key: "keg_returns_ratio", label: "Keg Returns Ratio", kpi: "Keg Returns Ratio" },
+        { key: "cost", label: "Cost of Quality", kpi: "Cost of Quality" },
       ],
     },
     {
@@ -84,6 +87,7 @@
     Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December",
   };
   const MONTH_FULL_LIST = Object.values(MONTH_ABBR_TO_FULL);
+  const MONTH_FULL_TO_ABBR = Object.fromEntries(Object.entries(MONTH_ABBR_TO_FULL).map(([a, f]) => [f, a]));
 
   // Headline metrics pulled onto the hero strip when present.
   const HEADLINE_KPIS = ["Plan Attainment", "Total Package Loss", "Extract Loss", "Micro"];
@@ -525,7 +529,133 @@
     return row ? row.actualYtd : null;
   }
 
-  function renderMetricTile(row) {
+  // ---------- Trend chart (zoomed-tile only) ----------
+  // Replaces the "Year to date" bar with a small line chart across the last
+  // 6-7 months once a tile is zoomed — the compact tile keeps its normal
+  // bars, since there isn't room there to make a trend legible.
+
+  const monthRowsCache = new Map();
+
+  async function fetchMonthRows(month) {
+    if (month === state.snapshot.month) {
+      return (state.snapshot.kpiDash && state.snapshot.kpiDash.rows) || null;
+    }
+    if (monthRowsCache.has(month)) return monthRowsCache.get(month);
+    try {
+      const res = await fetch(`/api/data/${encodeURIComponent(month)}`);
+      const data = await res.json();
+      const rows = (data.snapshot && data.snapshot.kpiDash && data.snapshot.kpiDash.rows) || null;
+      monthRowsCache.set(month, rows);
+      return rows;
+    } catch {
+      monthRowsCache.set(month, null);
+      return null;
+    }
+  }
+
+  // Walks backwards from uptoMonth through the calendar, keeping only months
+  // that have actually been saved, until it has `count` of them (or runs out
+  // — a KPI tracked for only 2-3 months still gets whatever exists, rather
+  // than the chart being blocked until a full 6-7 months accumulate).
+  function getTrailingMonths(uptoMonth, count) {
+    const idx = MONTH_FULL_LIST.indexOf(uptoMonth);
+    if (idx === -1) return state.months.includes(uptoMonth) ? [uptoMonth] : [];
+    const trailing = [];
+    for (let i = idx; i >= 0 && trailing.length < count; i--) {
+      const m = MONTH_FULL_LIST[i];
+      if (state.months.includes(m)) trailing.unshift(m);
+    }
+    return trailing;
+  }
+
+  function renderTrendPlaceholder(kpiName, unit) {
+    return `
+      <div class="mt-period">
+        <div class="mt-period-head">Year to date</div>
+        <div class="mt-trend-wrap">
+          <div class="mt-trend-loading">Loading trend…</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadTrendInto(containerEl, kpiName, unit) {
+    const wrap = containerEl.classList && containerEl.classList.contains("mt-trend-wrap")
+      ? containerEl
+      : containerEl.querySelector(".mt-trend-wrap");
+    if (!wrap) return;
+
+    const months = getTrailingMonths(state.snapshot.month, 7);
+    const rowsPerMonth = await Promise.all(months.map((m) => fetchMonthRows(m)));
+
+    // The zoom may have closed, or the toggle may have switched to a
+    // different variant, while these fetches were in flight — don't paint
+    // over content that's no longer this chart's to paint.
+    if (!document.body.contains(wrap)) return;
+
+    const points = [];
+    let target = null;
+    months.forEach((m, i) => {
+      const rows = rowsPerMonth[i];
+      const row = rows && rows.find((r) => r.kpi === kpiName);
+      if (row && row.actualMonth != null) {
+        points.push({ month: m, raw: row.actualMonth });
+        if (target == null && row.budgetMonth != null) target = row.budgetMonth;
+      }
+    });
+
+    if (points.length < 2) {
+      wrap.innerHTML = `<div class="mt-trend-empty">Not enough history yet to chart a trend.</div>`;
+      return;
+    }
+    wrap.innerHTML = renderTrendSvg(points, target, kpiName, unit);
+  }
+
+  function renderTrendSvg(points, target, kpiName, unit) {
+    const scaledPoints = points.map((p) => ({ ...p, scaled: scaleForBar(p.raw, unit, kpiName) }));
+    const scaledTarget = target == null ? null : scaleForBar(target, unit, kpiName);
+
+    const W = 260, H = 86, padL = 8, padR = 8, padT = 10, padB = 18;
+    const values = scaledPoints.map((p) => p.scaled).concat(scaledTarget != null ? [scaledTarget] : []);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || Math.abs(max) || 1;
+    const padRange = range * 0.15;
+    const yMin = min - padRange, yMax = max + padRange;
+    const yFor = (v) => padT + (1 - (v - yMin) / ((yMax - yMin) || 1)) * (H - padT - padB);
+    const stepX = scaledPoints.length > 1 ? (W - padL - padR) / (scaledPoints.length - 1) : 0;
+    const xFor = (i) => padL + i * stepX;
+
+    const direction = KPI_DIRECTION[kpiName] || "higher";
+    const last = scaledPoints[scaledPoints.length - 1];
+    const g = scaledTarget != null ? goodness(direction, last.scaled - scaledTarget) : "flat";
+    const color = g === "good" ? "var(--teal)" : g === "bad" ? "var(--orange)" : "var(--sky)";
+
+    const pathD = scaledPoints.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(i).toFixed(1)} ${yFor(p.scaled).toFixed(1)}`).join(" ");
+    const dots = scaledPoints.map((p, i) => `<circle cx="${xFor(i).toFixed(1)}" cy="${yFor(p.scaled).toFixed(1)}" r="${i === scaledPoints.length - 1 ? 3.2 : 2}" fill="${color}"/>`).join("");
+    const labels = scaledPoints.map((p, i) => `<text x="${xFor(i).toFixed(1)}" y="${H - 5}" font-size="7.5" text-anchor="middle" fill="var(--muted)" font-family="var(--font-mono)">${p.month.slice(0, 3)}</text>`).join("");
+    const targetLine = scaledTarget != null
+      ? `<line x1="${padL}" y1="${yFor(scaledTarget).toFixed(1)}" x2="${W - padR}" y2="${yFor(scaledTarget).toFixed(1)}" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3,2" opacity="0.55"/>`
+      : "";
+
+    return `
+      <div class="mt-trend">
+        <svg viewBox="0 0 ${W} ${H}" class="mt-trend-svg" preserveAspectRatio="none">
+          ${targetLine}
+          <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2"/>
+          ${dots}
+          ${labels}
+        </svg>
+        <div class="mt-trend-meta">
+          <span>${fmtKpiValue(points[0].raw, unit, kpiName)} \u2192 ${fmtKpiValue(points[points.length - 1].raw, unit, kpiName)}</span>
+          ${target != null ? `<span>target ${fmtKpiValue(target, unit, kpiName)}</span>` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderMetricTile(row, opts) {
+    const forZoom = !!(opts && opts.forZoom);
     const direction = KPI_DIRECTION[row.kpi] || "higher";
     const gMonth = goodness(direction, row.varMonth);
     const gYtd = goodness(direction, row.varYtd);
@@ -542,9 +672,14 @@
         <span class="mt-badge ${badgeClass}">${fmtKpiDelta(row.varMonth, row.unit, row.kpi)}</span>
       </div>
       ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
-      ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+      ${forZoom ? renderTrendPlaceholder(row.kpi, row.unit) : renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
       ${renderTileYoyPeriod(row)}
     `;
+    // Stashed (not just for zoom's own clone-free rebuild, but also so a
+    // later re-render of the zoom overlay for the same tile doesn't need
+    // the caller to have kept a reference to the row separately).
+    el.__row = row;
+    if (forZoom) loadTrendInto(el, row.kpi, row.unit);
     return el;
   }
 
@@ -719,7 +854,7 @@
   // caller can trigger an initial render; wiring alone doesn't repaint,
   // since a freshly cloned zoom copy should keep showing whatever variant
   // was already selected rather than jumping back to the default.
-  function wireGroupToggle(containerEl, variantRows) {
+  function wireGroupToggle(containerEl, variantRows, forZoom) {
     const defaultVariant = variantRows.find((v) => v.key === "total") || variantRows[0];
 
     function paint(variantKey) {
@@ -736,9 +871,13 @@
 
       containerEl.querySelector(".mt-group-body").innerHTML = `
         ${renderTilePeriod("This month", row.budgetMonth, row.actualMonth, row.unit, row.kpi, gMonth)}
-        ${renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
+        ${forZoom ? renderTrendPlaceholder(row.kpi, row.unit) : renderTilePeriod("Year to date", row.budgetYtd, row.actualYtd, row.unit, row.kpi, gYtd)}
         ${renderTileYoyPeriod(row)}
       `;
+      if (forZoom) {
+        const wrap = containerEl.querySelector(".mt-trend-wrap");
+        if (wrap) loadTrendInto(wrap, row.kpi, row.unit);
+      }
     }
 
     containerEl.querySelectorAll(".mt-group-toggle-btn").forEach((btn) => {
@@ -757,14 +896,18 @@
     return paint;
   }
 
-  function renderGroupTile(title, variantRows) {
+  function renderGroupTile(title, variantRows, opts) {
+    const forZoom = !!(opts && opts.forZoom);
     const el = document.createElement("div");
     el.className = "metric-tile metric-tile-group";
     el.tabIndex = 0;
     el.setAttribute("role", "button");
     el.setAttribute("aria-label", `Inspect ${title}`);
 
-    const defaultVariant = variantRows.find((v) => v.key === "total") || variantRows[0];
+    const defaultVariant =
+      (opts && opts.initialVariantKey && variantRows.find((v) => v.key === opts.initialVariantKey)) ||
+      variantRows.find((v) => v.key === "total") ||
+      variantRows[0];
 
     el.innerHTML = `
       <div class="mt-top">
@@ -780,13 +923,14 @@
       <div class="mt-group-body"></div>
     `;
 
-    const paint = wireGroupToggle(el, variantRows);
+    const paint = wireGroupToggle(el, variantRows, forZoom);
     paint(defaultVariant.key);
 
-    // Stashed so the zoom overlay's clone (which doesn't inherit event
-    // listeners from cloneNode) can re-wire its own working toggle buttons.
+    // Stashed so opening zoom can rebuild this tile from scratch (rather
+    // than cloning, which doesn't inherit event listeners) while preserving
+    // both its data and whichever variant is currently selected.
     el.__groupVariantRows = variantRows;
-
+    el.__groupTitle = title;
 
     return el;
   }
@@ -1203,18 +1347,26 @@
   function openTileZoom(tileEl) {
     const stage = $("#tileZoomStage");
     stage.innerHTML = "";
-    const clone = tileEl.cloneNode(true);
-    clone.removeAttribute("tabindex");
-    clone.removeAttribute("role");
-    stage.appendChild(clone);
 
-    // cloneNode copies markup but not event listeners, so a consolidated
-    // group tile's toggle buttons would otherwise do nothing once zoomed —
-    // re-wire them on the clone, without repainting, so it keeps showing
-    // whatever variant was already selected before zooming in.
+    // Rebuilt from scratch (forZoom:true) rather than cloned — cloneNode
+    // would carry over the compact bar instead of the trend chart, and
+    // wouldn't inherit event listeners either. The currently-active toggle
+    // variant (for group tiles) is preserved so zooming in doesn't reset it.
+    let zoomedTile;
     if (tileEl.classList.contains("metric-tile-group") && tileEl.__groupVariantRows) {
-      wireGroupToggle(clone, tileEl.__groupVariantRows);
+      const activeBtn = tileEl.querySelector(".mt-group-toggle-btn.active");
+      const initialVariantKey = activeBtn ? activeBtn.dataset.variant : null;
+      zoomedTile = renderGroupTile(tileEl.__groupTitle, tileEl.__groupVariantRows, { forZoom: true, initialVariantKey });
+    } else if (tileEl.__row) {
+      zoomedTile = renderMetricTile(tileEl.__row, { forZoom: true });
+    } else {
+      // Safety net: should never happen, but better a plain clone than a
+      // blank overlay if a tile somehow wasn't stashed with its data.
+      zoomedTile = tileEl.cloneNode(true);
     }
+    zoomedTile.removeAttribute("tabindex");
+    zoomedTile.removeAttribute("role");
+    stage.appendChild(zoomedTile);
 
     const rect = tileEl.getBoundingClientRect();
     const maxScaleW = (window.innerWidth * 0.88) / rect.width;

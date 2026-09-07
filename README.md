@@ -192,15 +192,19 @@ remembered per-browser (via `localStorage`), not per-account.
 ### Consolidated metric cards
 
 A few closely-related KPIs share one card instead of getting one each, to cut down on
-card count and keep near-duplicates from crowding a page — right now that's seven
-complaint-related KPIs on the Quality page (Consumer Complaints Total/Cans & Bottles/Kegs,
-its PPM/hL Ratio, the Cans-only breakdown, Controllable Complaints, and Keg Returns),
-shown as a single "Consumer Complaints" card with a small toggle to switch between them.
-Everything else about the card — the bars, the pie mode, the "vs Last Year" comparison —
-works exactly like a normal tile; only the toggle is new, and clicking it switches
-variants without affecting the zoom-to-inspect click on the rest of the card. The toggle
-also works correctly once the card is zoomed in (clicking a toggle inside the zoomed view
-switches its content too, independent of whatever's selected in the small card behind it).
+card count and keep near-duplicates from crowding a page — right now that's ten
+complaint- and quality-cost-related KPIs on the Quality page (Consumer Complaints
+Total/Cans & Bottles/Kegs, its PPM/hL Ratio, the Cans-only breakdown, Controllable
+Complaints and its Ratio, Keg Returns and its Ratio, and Cost of Quality), shown as a
+single "Consumer Complaints" card with a small toggle to switch between them. With this
+many variants folded in, the Quality page is down to just 4 cards total (Micro, Phys
+Chem, Sensory, and this one) — confirmed still fits every tested screen size with zero
+scrolling. Everything else about the card — the bars, the pie mode, the "vs Last Year"
+comparison, the trend chart when zoomed — works exactly like a normal tile; only the
+toggle is new, and clicking it switches variants without affecting the zoom-to-inspect
+click on the rest of the card. The toggle also works correctly once the card is zoomed in
+(clicking a toggle inside the zoomed view switches its content too, including reloading
+the trend chart for whichever KPI is now selected).
 
 Not every variant shows up every month — "CC Cans" (the cans-only breakdown) only comes
 from the workbook's `KPI - Actual` history tabs, not the curated `KPI - Dash` tab, so it
@@ -230,8 +234,34 @@ it falls back to a normal single tile so nothing goes missing.
 Click (or focus + Enter/Space) any metric tile on the Quality, Utilities, or Efficiency
 pages to see it enlarged — up to 200% (2×), automatically capped so it never overflows
 the screen on smaller windows. Click the dimmed background, or press Escape, to close it.
-It's an exact clone of the tile as currently rendered, so it works correctly in both bar
-and pie chart mode.
+It's rebuilt fresh from the same data (not a clone of the compact tile's markup) so it
+works correctly in both bar and pie chart mode, and — see below — can show a richer
+"Year to date" section than the compact card has room for.
+
+### Trend chart on zoom
+
+The zoomed view replaces the "Year to date" bar with a small line chart plotting that
+KPI's actual value across the last 6-7 months (whichever months have been saved — a KPI
+with less history just shows however many months exist, with a plain note if there's only
+one), with a dashed horizontal line marking the target. "This month" and "vs Last Year"
+stay as bars — a trend chart is for showing direction over time, which is exactly what a
+single bar can't do, but a two-number comparison (this month vs last year) is still best
+served by a bar. The line is a single color the whole way across — teal if the latest
+month is on the right side of target, orange if not — rather than color-coded per
+segment, to stay legible at this size.
+
+The compact tile in the grid is untouched; the chart only exists in the zoomed view, since
+a 6-7 point trend needs more room than the tile has to spare, and reworking the whole
+tile layout to fit one felt like the wrong trade against the "fit without scrolling" work
+that's already been through several rounds. For a consolidated group card (Consumer
+Complaints, Line Efficiency), switching the toggle while zoomed in reloads the chart for
+whichever KPI is now selected — confirmed working, not just cloned-and-frozen.
+
+Underlying data comes from the same monthly snapshots already saved for the month
+switcher and prior-year backfill — nothing new to upload. Each month's data is fetched
+once (via the existing `/api/data/<month>` endpoint) and cached in memory for the rest of
+the session, so opening zoom on a second tile doesn't refetch months already pulled for
+the first one.
 
 ## Notes on a couple of judgment calls
 
