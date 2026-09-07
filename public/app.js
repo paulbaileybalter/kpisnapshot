@@ -634,7 +634,19 @@
       const grid = $(".metric-tile-grid", section);
       const count = $(".count", section);
       grid.innerHTML = "";
-      const rows = kpiRows.filter((r) => r.type === type);
+
+      // Guard against the same KPI appearing more than once in the saved
+      // data (e.g. from a re-save that didn't fully replace the previous
+      // rows) — keep only the first occurrence of each KPI name so a stray
+      // duplicate can never produce two copies of the same card.
+      const seenKpiNames = new Set();
+      const rows = kpiRows.filter((r) => {
+        if (r.type !== type) return false;
+        if (seenKpiNames.has(r.kpi)) return false;
+        seenKpiNames.add(r.kpi);
+        return true;
+      });
+
       if (!rows.length) {
         section.classList.add("hidden");
         count.textContent = "";
@@ -644,26 +656,26 @@
 
       // Rows belonging to a METRIC_GROUPS entry render as one consolidated
       // card (with an internal toggle) instead of one card each; everything
-      // else renders as a normal tile, in its original order.
-      const usedIndices = new Set();
+      // else renders as a normal tile, in its original order. Tracked by
+      // group title rather than row index, so it can't be fooled by rows
+      // appearing out of the order METRIC_GROUPS lists their variants in.
+      const processedGroups = new Set();
       let cardCount = 0;
-      rows.forEach((row, idx) => {
-        if (usedIndices.has(idx)) return;
+      rows.forEach((row) => {
         const group = METRIC_GROUPS.find((g) => g.variants.some((v) => v.kpi === row.kpi));
         if (!group) {
           grid.appendChild(renderMetricTile(row));
           cardCount++;
           return;
         }
+        if (processedGroups.has(group.title)) return;
+        processedGroups.add(group.title);
         const variantRows = group.variants
           .map((v) => {
             const r = rows.find((rr) => rr.kpi === v.kpi);
             return r ? { ...v, row: r } : null;
           })
           .filter(Boolean);
-        rows.forEach((rr, rIdx) => {
-          if (variantRows.some((v) => v.row === rr)) usedIndices.add(rIdx);
-        });
         if (variantRows.length > 1) {
           grid.appendChild(renderGroupTile(group.title, variantRows));
         } else if (variantRows.length === 1) {
