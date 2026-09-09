@@ -81,13 +81,13 @@
   ];
   const GROUPED_KPI_NAMES = new Set(METRIC_GROUPS.flatMap((g) => g.variants.map((v) => v.kpi)));
 
-  // Standalone KPIs that should render immediately before a specific
-  // group's card, overriding wherever they'd naturally fall in the data's
-  // own row order. Add more entries here for similar one-off placement
-  // requests without needing a bigger reordering system.
-  const PINNED_BEFORE_GROUP = {
-    "Cost of Quality": "Consumer Complaints",
-  };
+  // Standalone KPIs that should render immediately before or after a
+  // specific group's card, overriding wherever they'd naturally fall in
+  // the data's own row order. Add more entries here for similar one-off
+  // placement requests without needing a bigger reordering system.
+  const PINNED_RELATIVE_TO_GROUP = [
+    { kpi: "Cost of Quality", groupTitle: "Consumer Complaints", position: "after" },
+  ];
 
   const MONTH_ABBR_TO_FULL = {
     Jan: "January", Feb: "February", Mar: "March", Apr: "April", May: "May", Jun: "June",
@@ -815,19 +815,28 @@
         return;
       }
 
-      // Move any pinned standalone KPI to sit immediately before its
-      // target group's card, regardless of where it naturally falls in
-      // the saved data's own row order.
-      Object.entries(PINNED_BEFORE_GROUP).forEach(([kpiName, groupTitle]) => {
-        const kpiIdx = rows.findIndex((r) => r.kpi === kpiName);
+      // Move any pinned standalone KPI to sit immediately before or after
+      // its target group's card, regardless of where it naturally falls
+      // in the saved data's own row order.
+      PINNED_RELATIVE_TO_GROUP.forEach(({ kpi, groupTitle, position }) => {
+        const kpiIdx = rows.findIndex((r) => r.kpi === kpi);
         if (kpiIdx === -1) return;
         const group = METRIC_GROUPS.find((g) => g.title === groupTitle);
         if (!group) return;
-        const groupFirstIdx = rows.findIndex((r) => group.variants.some((v) => v.kpi === r.kpi));
-        if (groupFirstIdx === -1 || kpiIdx <= groupFirstIdx) return;
+        const groupIndices = [];
+        rows.forEach((r, i) => {
+          if (group.variants.some((v) => v.kpi === r.kpi)) groupIndices.push(i);
+        });
+        if (!groupIndices.length) return;
         const [pinnedRow] = rows.splice(kpiIdx, 1);
-        const newGroupFirstIdx = rows.findIndex((r) => group.variants.some((v) => v.kpi === r.kpi));
-        rows.splice(newGroupFirstIdx, 0, pinnedRow);
+        const newGroupIndices = [];
+        rows.forEach((r, i) => {
+          if (group.variants.some((v) => v.kpi === r.kpi)) newGroupIndices.push(i);
+        });
+        const insertAt = position === "after"
+          ? newGroupIndices[newGroupIndices.length - 1] + 1
+          : newGroupIndices[0];
+        rows.splice(insertAt, 0, pinnedRow);
       });
       section.classList.remove("hidden");
 

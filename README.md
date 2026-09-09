@@ -197,10 +197,11 @@ complaint-related KPIs on the Quality page (Consumer Complaints Total/Cans & Bot
 its PPM/hL Ratio, the Cans-only breakdown, Controllable Complaints and its Ratio, and Keg
 Returns and its Ratio), shown as a single "Consumer Complaints" card with a small toggle
 to switch between them. Cost of Quality used to be part of this group too, but per a
-manager request it now gets its own card, placed immediately before Consumer Complaints
-regardless of where it naturally falls in the data — see `PINNED_BEFORE_GROUP` near
+manager request it now gets its own card, placed immediately after Consumer Complaints
+regardless of where it naturally falls in the data — see `PINNED_RELATIVE_TO_GROUP` near
 `METRIC_GROUPS` in `public/app.js` if a similar "pull this one out and place it here"
-request comes up again for another metric.
+request comes up again for another metric (each entry supports `position: "before"` or
+`"after"`).
 
 Everything else about the group card — the bars, the pie mode, the "vs Last Year"
 comparison, the trend chart when zoomed — works exactly like a normal tile; only the
