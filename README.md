@@ -192,14 +192,17 @@ remembered per-browser (via `localStorage`), not per-account.
 ### Consolidated metric cards
 
 A few closely-related KPIs share one card instead of getting one each, to cut down on
-card count and keep near-duplicates from crowding a page — right now that's ten
-complaint- and quality-cost-related KPIs on the Quality page (Consumer Complaints
-Total/Cans & Bottles/Kegs, its PPM/hL Ratio, the Cans-only breakdown, Controllable
-Complaints and its Ratio, Keg Returns and its Ratio, and Cost of Quality), shown as a
-single "Consumer Complaints" card with a small toggle to switch between them. With this
-many variants folded in, the Quality page is down to just 4 cards total (Micro, Phys
-Chem, Sensory, and this one) — confirmed still fits every tested screen size with zero
-scrolling. Everything else about the card — the bars, the pie mode, the "vs Last Year"
+card count and keep near-duplicates from crowding a page — right now that's nine
+complaint-related KPIs on the Quality page (Consumer Complaints Total/Cans & Bottles/Kegs,
+its PPM/hL Ratio, the Cans-only breakdown, Controllable Complaints and its Ratio, and Keg
+Returns and its Ratio), shown as a single "Consumer Complaints" card with a small toggle
+to switch between them. Cost of Quality used to be part of this group too, but per a
+manager request it now gets its own card, placed immediately before Consumer Complaints
+regardless of where it naturally falls in the data — see `PINNED_BEFORE_GROUP` near
+`METRIC_GROUPS` in `public/app.js` if a similar "pull this one out and place it here"
+request comes up again for another metric.
+
+Everything else about the group card — the bars, the pie mode, the "vs Last Year"
 comparison, the trend chart when zoomed — works exactly like a normal tile; only the
 toggle is new, and clicking it switches variants without affecting the zoom-to-inspect
 click on the rest of the card. The toggle also works correctly once the card is zoomed in
