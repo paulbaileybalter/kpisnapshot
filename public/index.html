@@ -35,6 +35,7 @@
       </button>
       <div class="gate-error" id="gateError"></div>
     </form>
+    <div class="stripe" aria-hidden="true"></div>
   </div>
 </div>
 
@@ -42,41 +43,44 @@
 <div id="app">
   <div class="page">
     <header>
-      <div class="logo"><img src="icon-192.png" alt="Balter Brewing"></div>
-      <div class="brand">
-        <span class="kicker">Balter Brewing</span>
-        <h1>KPI Snapshot</h1>
-      </div>
+      <div class="stripe top" aria-hidden="true"></div>
+      <div class="header-in">
+        <div class="logo"><img src="icon-192.png" alt="Balter Brewing"></div>
+        <div class="brand">
+          <span class="kicker">Balter Brewing</span>
+          <h1>KPI Snapshot</h1>
+        </div>
 
-      <div class="month-badge">
-        <span class="dot" id="monthDot"></span>
-        <label class="month-badge-label" for="monthSelect">Month</label>
-        <select id="monthSelect" title="Switch month"></select>
-        <span class="saved" id="savedMeta"></span>
-      </div>
+        <div class="month-badge">
+          <span class="dot" id="monthDot"></span>
+          <label class="month-badge-label" for="monthSelect">Month</label>
+          <select id="monthSelect" title="Switch month"></select>
+          <span class="saved" id="savedMeta"></span>
+        </div>
 
-      <div class="header-spacer"></div>
+        <div class="header-spacer"></div>
 
-      <div class="chart-toggle" id="chartToggle" title="Switch chart style" role="group">
-        <button class="chart-toggle-btn active" id="chartStyleBar" data-style="bar" aria-label="Bar charts">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V10M12 21V4M19 21v-7" stroke-linecap="round"/></svg>
+        <div class="chart-toggle" id="chartToggle" title="Switch chart style" role="group">
+          <button class="chart-toggle-btn active" id="chartStyleBar" data-style="bar" aria-label="Bar charts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V10M12 21V4M19 21v-7" stroke-linecap="round"/></svg>
+          </button>
+          <button class="chart-toggle-btn" id="chartStylePie" data-style="pie" aria-label="Pie charts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10l7.07 7.07A10 10 0 1112 2z" stroke-linejoin="round"/><path d="M12 2A10 10 0 0122 12h-10z"/></svg>
+          </button>
+        </div>
+
+        <button class="btn ghost" id="openUploadBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          Update data
         </button>
-        <button class="chart-toggle-btn" id="chartStylePie" data-style="pie" aria-label="Pie charts">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10l7.07 7.07A10 10 0 1112 2z" stroke-linejoin="round"/><path d="M12 2A10 10 0 0122 12h-10z"/></svg>
+        <button class="btn ghost" id="exportBtn" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 12h10M4 16h10M4 20h6"/></svg>
+          Export CSV
+        </button>
+        <button class="btn ghost" id="logoutBtn" title="Log out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         </button>
       </div>
-
-      <button class="btn ghost" id="openUploadBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-        Update data
-      </button>
-      <button class="btn ghost" id="exportBtn" disabled>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 12h10M4 16h10M4 20h6"/></svg>
-        Export CSV
-      </button>
-      <button class="btn ghost" id="logoutBtn" title="Log out">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-      </button>
     </header>
 
     <!-- Empty state -->

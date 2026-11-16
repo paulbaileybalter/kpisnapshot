@@ -1570,15 +1570,18 @@
 
   function spawnBubbles() {
     const wrap = $(".bubbles");
-    const count = window.innerWidth < 640 ? 10 : 18;
+    if (!wrap) return;
+    const colors = ["#47D7AC", "#99D6EA", "#F1EB9C", "#FFD637", "#7566A0"];
+    const count = window.innerWidth < 640 ? 10 : 14;
     for (let i = 0; i < count; i++) {
       const b = document.createElement("span");
-      const size = 6 + Math.random() * 20;
+      const size = 6 + Math.round(Math.random() * 22);
       b.style.width = size + "px";
       b.style.height = size + "px";
-      b.style.left = Math.random() * 100 + "%";
-      b.style.animationDuration = 10 + Math.random() * 14 + "s";
-      b.style.animationDelay = -(Math.random() * 20) + "s";
+      b.style.left = Math.round(Math.random() * 100) + "%";
+      b.style.setProperty("--c", colors[i % colors.length]);
+      b.style.animationDuration = (12 + Math.random() * 16).toFixed(1) + "s";
+      b.style.animationDelay = (-Math.random() * 28).toFixed(1) + "s";
       wrap.appendChild(b);
     }
   }

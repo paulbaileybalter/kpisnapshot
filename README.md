@@ -21,6 +21,19 @@ this project is tested against (1366×768 and 1280×800) its last row or so need
 internal scroll to reach. Nothing else moves when that happens — the header, hero, and
 tabs stay in place; only the tile grid itself scrolls.
 
+## Visual style
+
+Styled to match Balter's other internal tools (the CIP/SIP Compliance dashboard):
+Lexend type, the same five-colour brand palette (mint/teal, orange, purple, sky, gold,
+cream), a sticky blurred header with a colour-stripe underline, pill-shaped buttons and
+tabs, and a "hard shadow" outlined-card treatment (black border + offset solid shadow,
+no blur) on metric tiles, the login card, and the upload modal — rather than soft
+drop-shadows. `public/styles.css` keeps the original CSS variable names
+(`--teal`/`--orange`/`--purple`/`--sky`/`--gold`/`--ink`/`--muted`/`--wash`) since
+`app.js` and `index.html` reference them directly (inline swatch colours, SVG trend-line
+colours); new `-t` (tint) and `-2`/`-3` (ink opacity) variants were added alongside them
+rather than renamed, so existing references didn't need touching.
+
 ## How it works
 
 - **Parsing happens in your browser.** The `.xlsx` files never get uploaded as files —
