@@ -16,4 +16,4 @@ binding = "ASSETS"
 # the name must be SNAPSHOT_KV in both places).
 [[kv_namespaces]]
 binding = "SNAPSHOT_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "657d05cde0db4fe180c0ee473ee3fee4"
