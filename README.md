@@ -34,6 +34,17 @@ drop-shadows. `public/styles.css` keeps the original CSS variable names
 colours); new `-t` (tint) and `-2`/`-3` (ink opacity) variants were added alongside them
 rather than renamed, so existing references didn't need touching.
 
+## Email version
+
+The **Copy email** button in the header builds a single email covering every tab (hero
+strip, Quality, Utilities, Efficiency and the Production Plan table) and puts it on the
+clipboard as rich HTML, ready to paste into a Gmail draft. It's built from plain tables
+with inline styles (Gmail strips `<style>`, SVG and CSS variables), so bars and the
+month-by-month trend columns are table cells rather than SVG, and grouped metrics
+(Consumer Complaints, Line Efficiency) appear as full-width tables instead of toggles.
+It reuses `getCategoryCards()` so card order always matches the website. The code is the
+"Email version" block in `public/app.js`.
+
 ## How it works
 
 - **Parsing happens in your browser.** The `.xlsx` files never get uploaded as files —

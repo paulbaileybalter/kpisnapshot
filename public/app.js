@@ -788,8 +788,73 @@
     return unit === "%" ? scaleKpiPercent(v, kpiName) : v;
   }
 
-  function renderCategories() {
+  // The ordered list of cards for one category page: dedupes repeated KPI
+  // rows, applies PINNED_RELATIVE_TO_GROUP, and folds METRIC_GROUPS rows into
+  // single group entries. Shared by the on-screen tiles and the email
+  // version so the two can never disagree about what appears or in what order.
+  function getCategoryCards(type) {
     const kpiRows = (state.snapshot.kpiDash && state.snapshot.kpiDash.rows) || [];
+    // Guard against the same KPI appearing more than once in the saved
+    // data (e.g. from a re-save that didn't fully replace the previous
+    // rows) — keep only the first occurrence of each KPI name so a stray
+    // duplicate can never produce two copies of the same card.
+    const seenKpiNames = new Set();
+    const rows = kpiRows.filter((r) => {
+      if (r.type !== type) return false;
+      if (seenKpiNames.has(r.kpi)) return false;
+      seenKpiNames.add(r.kpi);
+      return true;
+    });
+    if (!rows.length) return [];
+
+    // Move any pinned standalone KPI to sit immediately before or after
+    // its target group's card, regardless of where it naturally falls
+    // in the saved data's own row order.
+    PINNED_RELATIVE_TO_GROUP.forEach(({ kpi, groupTitle, position }) => {
+      const kpiIdx = rows.findIndex((r) => r.kpi === kpi);
+      if (kpiIdx === -1) return;
+      const group = METRIC_GROUPS.find((g) => g.title === groupTitle);
+      if (!group) return;
+      const groupIndices = [];
+      rows.forEach((r, i) => {
+        if (group.variants.some((v) => v.kpi === r.kpi)) groupIndices.push(i);
+      });
+      if (!groupIndices.length) return;
+      const [pinnedRow] = rows.splice(kpiIdx, 1);
+      const newGroupIndices = [];
+      rows.forEach((r, i) => {
+        if (group.variants.some((v) => v.kpi === r.kpi)) newGroupIndices.push(i);
+      });
+      const insertAt = position === "after"
+        ? newGroupIndices[newGroupIndices.length - 1] + 1
+        : newGroupIndices[0];
+      rows.splice(insertAt, 0, pinnedRow);
+    });
+
+    // Rows belonging to a METRIC_GROUPS entry become one consolidated card;
+    // everything else stays a normal tile, in its original order. Tracked by
+    // group title rather than row index, so it can't be fooled by rows
+    // appearing out of the order METRIC_GROUPS lists their variants in.
+    const processedGroups = new Set();
+    const cards = [];
+    rows.forEach((row) => {
+      const group = METRIC_GROUPS.find((g) => g.variants.some((v) => v.kpi === row.kpi));
+      if (!group) { cards.push({ kind: "tile", row }); return; }
+      if (processedGroups.has(group.title)) return;
+      processedGroups.add(group.title);
+      const variantRows = group.variants
+        .map((v) => {
+          const r = rows.find((rr) => rr.kpi === v.kpi);
+          return r ? { ...v, row: r } : null;
+        })
+        .filter(Boolean);
+      if (variantRows.length > 1) cards.push({ kind: "group", title: group.title, variantRows });
+      else if (variantRows.length === 1) cards.push({ kind: "tile", row: variantRows[0].row });
+    });
+    return cards;
+  }
+
+  function renderCategories() {
     TYPE_ORDER.forEach((type) => {
       const section = $(`.category[data-type="${type}"]`);
       if (!section) return;
@@ -797,79 +862,17 @@
       const count = $(".count", section);
       grid.innerHTML = "";
 
-      // Guard against the same KPI appearing more than once in the saved
-      // data (e.g. from a re-save that didn't fully replace the previous
-      // rows) — keep only the first occurrence of each KPI name so a stray
-      // duplicate can never produce two copies of the same card.
-      const seenKpiNames = new Set();
-      const rows = kpiRows.filter((r) => {
-        if (r.type !== type) return false;
-        if (seenKpiNames.has(r.kpi)) return false;
-        seenKpiNames.add(r.kpi);
-        return true;
-      });
-
-      if (!rows.length) {
+      const cards = getCategoryCards(type);
+      if (!cards.length) {
         section.classList.add("hidden");
         count.textContent = "";
         return;
       }
-
-      // Move any pinned standalone KPI to sit immediately before or after
-      // its target group's card, regardless of where it naturally falls
-      // in the saved data's own row order.
-      PINNED_RELATIVE_TO_GROUP.forEach(({ kpi, groupTitle, position }) => {
-        const kpiIdx = rows.findIndex((r) => r.kpi === kpi);
-        if (kpiIdx === -1) return;
-        const group = METRIC_GROUPS.find((g) => g.title === groupTitle);
-        if (!group) return;
-        const groupIndices = [];
-        rows.forEach((r, i) => {
-          if (group.variants.some((v) => v.kpi === r.kpi)) groupIndices.push(i);
-        });
-        if (!groupIndices.length) return;
-        const [pinnedRow] = rows.splice(kpiIdx, 1);
-        const newGroupIndices = [];
-        rows.forEach((r, i) => {
-          if (group.variants.some((v) => v.kpi === r.kpi)) newGroupIndices.push(i);
-        });
-        const insertAt = position === "after"
-          ? newGroupIndices[newGroupIndices.length - 1] + 1
-          : newGroupIndices[0];
-        rows.splice(insertAt, 0, pinnedRow);
-      });
       section.classList.remove("hidden");
-
-      // Rows belonging to a METRIC_GROUPS entry render as one consolidated
-      // card (with an internal toggle) instead of one card each; everything
-      // else renders as a normal tile, in its original order. Tracked by
-      // group title rather than row index, so it can't be fooled by rows
-      // appearing out of the order METRIC_GROUPS lists their variants in.
-      const processedGroups = new Set();
-      let cardCount = 0;
-      rows.forEach((row) => {
-        const group = METRIC_GROUPS.find((g) => g.variants.some((v) => v.kpi === row.kpi));
-        if (!group) {
-          grid.appendChild(renderMetricTile(row));
-          cardCount++;
-          return;
-        }
-        if (processedGroups.has(group.title)) return;
-        processedGroups.add(group.title);
-        const variantRows = group.variants
-          .map((v) => {
-            const r = rows.find((rr) => rr.kpi === v.kpi);
-            return r ? { ...v, row: r } : null;
-          })
-          .filter(Boolean);
-        if (variantRows.length > 1) {
-          grid.appendChild(renderGroupTile(group.title, variantRows));
-        } else if (variantRows.length === 1) {
-          grid.appendChild(renderMetricTile(variantRows[0].row));
-        }
-        cardCount++;
+      cards.forEach((c) => {
+        grid.appendChild(c.kind === "group" ? renderGroupTile(c.title, c.variantRows) : renderMetricTile(c.row));
       });
-      count.textContent = `${cardCount} metric${cardCount === 1 ? "" : "s"}`;
+      count.textContent = `${cards.length} metric${cards.length === 1 ? "" : "s"}`;
     });
   }
 
@@ -1062,12 +1065,14 @@
       $("#page-production").classList.add("hidden");
       $("#emptyState").classList.remove("hidden");
       $("#exportBtn").disabled = true;
+      $("#copyEmailBtn").disabled = true;
       $("#savedMeta").textContent = "";
       return;
     }
     $("#emptyState").classList.add("hidden");
     $("#pageTabs").classList.remove("hidden");
     $("#exportBtn").disabled = false;
+    $("#copyEmailBtn").disabled = false;
     showPage(state.activePage);
 
     renderHero();
@@ -1159,6 +1164,298 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || "Couldn't save.");
     return data.snapshot;
+  }
+
+  /* =========================================================
+     Email version — one email covering every tab, built from
+     plain tables with inline styles (Gmail strips <style>,
+     SVG, CSS variables and most modern layout), then copied to
+     the clipboard as rich HTML for pasting into a Gmail draft.
+     ========================================================= */
+
+  const EM = {
+    teal: "#47D7AC", tealT: "#E4F9F2", orange: "#FDAA63", orangeT: "#FEEBD8", purple: "#7566A0",
+    sky: "#99D6EA", pale: "#F1EB9C", gold: "#FFD637", good: "#1f7a5c", bad: "#b3461f",
+    line: "#E3E3E3", wash: "#F6F6F6", muted: "#666666", font: "Lexend, 'Segoe UI', Arial, Helvetica, sans-serif",
+  };
+  const emEsc = (t) => String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // A horizontal bar built from table cells (percent widths), with a black
+  // target marker. fillPct/targetPct are 0-100.
+  function emBar(fillPct, targetPct, color) {
+    const f = Math.max(0, Math.min(100, fillPct));
+    const t = targetPct == null ? null : Math.max(0, Math.min(98, targetPct));
+    const cell = (w, bg) => w > 0 ? `<td width="${w.toFixed(1)}%" bgcolor="${bg}" style="width:${w.toFixed(1)}%;background:${bg};height:6px;font-size:0;line-height:0;">&nbsp;</td>` : "";
+    let cells;
+    if (t == null) cells = cell(f, color) + cell(100 - f, "#EDEDED");
+    else if (f <= t) cells = cell(f, color) + cell(t - f, "#EDEDED") + cell(2, "#000000") + cell(100 - t - 2, "#EDEDED");
+    else cells = cell(t, color) + cell(2, "#000000") + cell(Math.max(0, f - t - 2), color) + cell(100 - f, "#EDEDED");
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;table-layout:fixed;border-radius:3px;"><tr>${cells}</tr></table>`;
+  }
+
+  function emChip(text, g) {
+    const bg = g === "good" ? "#D5F5EA" : g === "bad" ? EM.orangeT : "#EEEEEE";
+    const fg = g === "good" ? EM.good : g === "bad" ? EM.bad : EM.muted;
+    return `<span style="display:inline-block;background:${bg};color:${fg};font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;">${emEsc(text)}</span>`;
+  }
+
+  // Month-by-month column chart with the target drawn as a thin black line
+  // across each column. Heights are px (Gmail honours td heights).
+  function emTrend(points, target, kpiName, unit) {
+    if (!points || points.length < 2) return `<div style="font-size:10px;color:${EM.muted};padding:6px 0;">Not enough history yet to chart a trend.</div>`;
+    const vals = points.map((p) => scaleForBar(p.raw, unit, kpiName));
+    const tv = target == null ? null : scaleForBar(target, unit, kpiName);
+    const all = vals.concat(tv != null ? [tv] : []);
+    const min = Math.min(...all), max = Math.max(...all);
+    const range = (max - min) || Math.abs(max) || 1;
+    const lo = min - range * 0.25, hi = max + range * 0.1;
+    const H = 46;
+    const h = (v) => Math.max(2, Math.round(((v - lo) / (hi - lo)) * H));
+    const dir = KPI_DIRECTION[kpiName] || "higher";
+    const sp = (px, bg) => px > 0 ? `<tr><td height="${px}" bgcolor="${bg || "#FFFFFF"}" style="height:${px}px;line-height:0;font-size:0;background:${bg || "#FFFFFF"};">&nbsp;</td></tr>` : "";
+    const cols = vals.map((v, i) => {
+      const g = tv != null ? goodness(dir, v - tv) : "flat";
+      const color = g === "good" ? EM.teal : g === "bad" ? EM.orange : EM.sky;
+      const hv = h(v);
+      let rows;
+      if (tv == null) rows = sp(H - hv) + sp(hv, color);
+      else {
+        const ht = h(tv);
+        rows = hv >= ht
+          ? sp(H - hv) + sp(hv - ht, color) + sp(1, "#000000") + sp(Math.max(0, ht - 1), color)
+          : sp(H - ht) + sp(1, "#000000") + sp(Math.max(0, ht - hv - 1)) + sp(hv, color);
+      }
+      return `<td valign="bottom" align="center" style="padding:0 2px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">${rows}</table><div style="font-size:9px;color:${EM.muted};padding-top:2px;">${points[i].month.slice(0, 3)}</div></td>`;
+    }).join("");
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;table-layout:fixed;"><tr>${cols}</tr></table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr>
+        <td style="font-size:10px;color:${EM.muted};padding-top:3px;">${emEsc(fmtKpiValue(points[0].raw, unit, kpiName))} &rarr; ${emEsc(fmtKpiValue(points[points.length - 1].raw, unit, kpiName))}</td>
+        ${target != null ? `<td align="right" style="font-size:10px;color:${EM.muted};padding-top:3px;">target ${emEsc(fmtKpiValue(target, unit, kpiName))}</td>` : ""}
+      </tr></table>`;
+  }
+
+  async function emTrendPoints(kpiName, months) {
+    const rowsPerMonth = await Promise.all(months.map((m) => fetchMonthRows(m)));
+    const points = [];
+    let target = null;
+    months.forEach((m, i) => {
+      const r = rowsPerMonth[i] && rowsPerMonth[i].find((x) => x.kpi === kpiName);
+      if (r && r.actualMonth != null) {
+        points.push({ month: m, raw: r.actualMonth });
+        if (target == null && r.budgetMonth != null) target = r.budgetMonth;
+      }
+    });
+    return { points, target };
+  }
+
+  function emPeriod(label, actual, budget, unit, kpiName, g) {
+    const color = g === "good" ? EM.teal : g === "bad" ? EM.orange : EM.sky;
+    const a = actual == null ? 0 : scaleForBar(actual, unit, kpiName);
+    const b = budget == null ? null : scaleForBar(budget, unit, kpiName);
+    const max = Math.max(Math.abs(a), Math.abs(b || 0), 1) * 1.15;
+    return `
+      <div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:${EM.muted};padding-top:8px;">${label}</div>
+      <div style="font-size:18px;font-weight:700;line-height:1.2;padding:1px 0 4px;">${emEsc(fmtKpiValue(actual, unit, kpiName))}</div>
+      ${emBar((Math.abs(a) / max) * 100, b == null ? null : (Math.abs(b) / max) * 100, color)}
+      <div style="font-size:10px;color:${EM.muted};padding-top:2px;">target ${emEsc(fmtKpiValue(budget, unit, kpiName))}</div>`;
+  }
+
+  function emLastYear(row) {
+    const ly = priorYearAnnualTotal(row.kpi);
+    if (ly == null || row.actualYtd == null) return "";
+    const g = goodness(KPI_DIRECTION[row.kpi] || "higher", row.actualYtd - ly);
+    return `<div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:${EM.muted};padding-top:8px;">vs Last Year</div>
+      <div style="padding:2px 0;">${emChip(fmtKpiDelta(row.actualYtd - ly, row.unit, row.kpi), g)}</div>
+      <div style="font-size:10px;color:${EM.muted};">${emEsc(fmtKpiValue(row.actualYtd, row.unit, row.kpi))} vs LY ${emEsc(fmtKpiValue(ly, row.unit, row.kpi))}</div>`;
+  }
+
+  async function emTile(row, months) {
+    const g = goodness(KPI_DIRECTION[row.kpi] || "higher", row.varMonth);
+    const { points, target } = await emTrendPoints(row.kpi, months);
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:100%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;"><tr><td style="padding:9px 11px;font-family:${EM.font};color:#000000;" valign="top">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr>
+        <td valign="top" style="font-size:13px;font-weight:700;line-height:1.3;">${emEsc(row.kpi)} <span style="font-size:10px;font-weight:400;color:${EM.muted};">${emEsc(row.unit || "")}</span></td>
+        <td valign="top" align="right" style="padding-left:6px;">${emChip(fmtKpiDelta(row.varMonth, row.unit, row.kpi), g)}</td>
+      </tr></table>
+      ${emPeriod("This month", row.actualMonth, row.budgetMonth, row.unit, row.kpi, g)}
+      <div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:${EM.muted};padding:9px 0 3px;">Year to date trend</div>
+      ${emTrend(points, target, row.kpi, row.unit)}
+      ${emLastYear(row)}
+    </td></tr></table>`;
+  }
+
+  // A consolidated group (Consumer Complaints, Line Efficiency) becomes a
+  // full-width table of all its variants instead of a toggle.
+  function emGroup(title, variantRows) {
+    const head = (t, a) => `<td align="${a || "right"}" style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:${EM.muted};padding:4px 6px;border-bottom:2px solid ${EM.teal};">${t}</td>`;
+    const body = variantRows.map(({ label, row }) => {
+      const g = goodness(KPI_DIRECTION[row.kpi] || "higher", row.varMonth);
+      const td = (t, a, extra) => `<td align="${a || "right"}" style="font-size:12px;padding:5px 6px;border-bottom:1px solid ${EM.line};${extra || ""}">${t}</td>`;
+      return `<tr>${td(`<b>${emEsc(row.kpi)}</b>`, "left")}${td(emEsc(fmtKpiValue(row.actualMonth, row.unit, row.kpi)), "right", "font-weight:700;")}${td(emEsc(fmtKpiValue(row.budgetMonth, row.unit, row.kpi)), "right", `color:${EM.muted};`)}${td(emChip(fmtKpiDelta(row.varMonth, row.unit, row.kpi), g))}${td(emEsc(fmtKpiValue(row.actualYtd, row.unit, row.kpi)), "right")}</tr>`;
+    }).join("");
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:100%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;"><tr><td style="padding:9px 11px;font-family:${EM.font};color:#000000;">
+      <div style="font-size:13px;font-weight:700;padding-bottom:4px;">${emEsc(title)}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">
+        <tr>${head("Metric", "left")}${head("This month")}${head("Target")}${head("vs target")}${head("YTD")}</tr>${body}
+      </table></td></tr></table>`;
+  }
+
+  function emSectionHeader(title, color) {
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr>
+      <td width="12" style="padding:0 8px 0 0;" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="10" height="10" bgcolor="${color}" style="width:10px;height:10px;background:${color};border:1px solid #000000;font-size:0;line-height:0;">&nbsp;</td></tr></table></td>
+      <td style="font-family:${EM.font};font-size:17px;font-weight:700;padding:18px 0 8px;" valign="middle">${emEsc(title)}</td></tr></table>`;
+  }
+
+  // Packs tiles three to a row; a group card takes a full row of its own.
+  function emGrid(cellsHtml) {
+    const rows = [];
+    let pending = [];
+    const flush = () => {
+      if (!pending.length) return;
+      const tds = [];
+      for (let i = 0; i < 3; i++) {
+        tds.push(`<td width="33.3%" valign="top" style="width:33.3%;padding:0 ${i === 2 ? 0 : 5}px 10px ${i === 0 ? 0 : 5}px;">${pending[i] || ""}</td>`);
+      }
+      rows.push(`<tr>${tds.join("")}</tr>`);
+      pending = [];
+    };
+    cellsHtml.forEach((c) => {
+      if (c.full) { flush(); rows.push(`<tr><td colspan="3" style="padding:0 0 10px;">${c.html}</td></tr>`); }
+      else { pending.push(c.html); if (pending.length === 3) flush(); }
+    });
+    flush();
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;table-layout:fixed;">${rows.join("")}</table>`;
+  }
+
+  function emHero(title, bigText, subText, stats) {
+    const statTds = stats.map((s) => `<td valign="top" style="padding:12px 14px;border-left:1px solid #3a3a3a;font-family:${EM.font};">
+      <div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#A8A8A8;">${emEsc(s.k)}</div>
+      <div style="font-size:19px;font-weight:700;color:#FFFFFF;padding:2px 0;">${emEsc(s.v)}</div>
+      ${s.chip ? emChip(s.chip, s.g) : ""}</td>`).join("");
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0B0B0C" style="border-collapse:separate;width:100%;background:#0B0B0C;border-radius:14px;"><tr>
+      <td valign="top" style="padding:12px 16px;font-family:${EM.font};color:#FFFFFF;">
+        <div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#A8A8A8;">${emEsc(title)}</div>
+        <div style="font-size:30px;font-weight:800;line-height:1.1;color:#FFFFFF;">${emEsc(bigText)}</div>
+        <div style="font-size:11px;color:#CFCFCF;padding-top:2px;">${emEsc(subText)}</div></td>${statTds}</tr></table>`;
+  }
+
+  function emStripe() {
+    const c = (bg) => `<td height="5" width="16.6%" bgcolor="${bg}" style="height:5px;width:16.6%;background:${bg};font-size:0;line-height:0;">&nbsp;</td>`;
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;border-radius:3px;"><tr>${[EM.pale, EM.gold, EM.orange, EM.purple, EM.sky, EM.teal].map(c).join("")}</tr></table>`;
+  }
+
+  async function buildEmailHtml() {
+    const s = state.snapshot;
+    const kpiRows = (s.kpiDash && s.kpiDash.rows) || [];
+    const months = getTrailingMonths(s.month, 7);
+    const font = `font-family:${EM.font};`;
+
+    // Hero: same headline + stats as the website
+    const att = findKpi(kpiRows, "Plan Attainment");
+    const stats = [];
+    HEADLINE_KPIS.filter((n) => n !== "Plan Attainment").forEach((name) => {
+      const r = findKpi(kpiRows, name);
+      if (!r) return;
+      const g = goodness(KPI_DIRECTION[name] || "higher", r.varMonth);
+      stats.push({ k: r.kpi, v: fmtKpiValue(r.actualMonth, r.unit, r.kpi), chip: fmtKpiDelta(r.varMonth, r.unit, r.kpi), g });
+    });
+    const plan = s.productionPlan;
+    if (plan && plan.totals) {
+      const d = plan.totals.diff || 0;
+      stats.push({ k: "hL produced", v: `${fmtNumber(plan.totals.produced, 0)} hL`, chip: `${d >= 0 ? "+" : "−"}${fmtNumber(Math.abs(d), 0)} vs plan`, g: d >= 0 ? "good" : "bad" });
+    }
+    const heroBig = att ? fmtKpiValue(att.actualMonth, "%", att.kpi) : plan && plan.totals ? fmtPercent(plan.totals.attainment) : "—";
+    const heroSub = att ? `vs ${fmtKpiValue(att.budgetMonth, "%", att.kpi)} target (${fmtKpiDelta(att.varMonth, "%", att.kpi)})` : "";
+    const hero = emHero(`${s.month || ""} · Plan attainment`, heroBig, heroSub, stats);
+
+    const catColors = { Quality: EM.purple, Utilities: EM.sky, Efficiency: EM.orange };
+    let sections = "";
+    for (const type of TYPE_ORDER) {
+      const cards = getCategoryCards(type);
+      if (!cards.length) continue;
+      const cells = await Promise.all(cards.map(async (c) => c.kind === "group"
+        ? { full: true, html: emGroup(c.title, c.variantRows) }
+        : { full: false, html: await emTile(c.row, months) }));
+      sections += emSectionHeader(type, catColors[type]) + emGrid(cells);
+    }
+
+    // Production plan
+    if (plan && plan.skus && plan.skus.length) {
+      const t = plan.totals || {};
+      const th = (x, a) => `<td align="${a || "right"}" style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:${EM.muted};padding:6px;border-bottom:2px solid ${EM.teal};">${x}</td>`;
+      const maxAtt = Math.max(1, ...plan.skus.map((k) => k.attainment || 0)) * 1.08;
+      const rows = plan.skus.map((k) => {
+        const good = (k.attainment || 0) >= 1;
+        const dg = (k.diff || 0) >= 0;
+        const td = (x, a, extra) => `<td align="${a || "right"}" style="font-size:12px;padding:5px 6px;border-bottom:1px solid ${EM.line};${extra || ""}">${x}</td>`;
+        return `<tr>${td(emEsc(k.sku), "left")}${td(fmtNumber(k.planned, 1))}${td(fmtNumber(k.produced, 1))}
+          <td width="30%" style="padding:5px 6px;border-bottom:1px solid ${EM.line};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr><td style="width:100%;">${emBar(((k.attainment || 0) / maxAtt) * 100, (1 / maxAtt) * 100, good ? EM.teal : EM.orange)}</td><td style="font-size:11px;font-weight:700;padding-left:6px;white-space:nowrap;">${k.attainment == null ? "—" : (k.attainment * 100).toFixed(0) + "%"}</td></tr></table></td>
+          ${td(k.diff == null ? "—" : (dg ? "+" : "−") + fmtNumber(Math.abs(k.diff), 1), "right", `font-weight:700;color:${dg ? EM.good : EM.bad};`)}</tr>`;
+      }).join("");
+      const dTot = t.diff || 0;
+      sections += emSectionHeader("Production Plan", EM.teal) + `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:100%;border:1px solid ${EM.line};border-radius:12px;"><tr><td style="padding:10px 12px;">
+          <div style="font-size:12px;padding-bottom:6px;"><b>${t.attainment == null ? "—" : (t.attainment * 100).toFixed(1) + "%"}</b> attainment &nbsp;·&nbsp; ${fmtNumber(t.planned, 0)} hL planned &nbsp;·&nbsp; ${fmtNumber(t.produced, 0)} hL produced &nbsp;·&nbsp; ${dTot >= 0 ? "+" : "−"}${fmtNumber(Math.abs(dTot), 0)} hL vs plan</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;">
+            <tr>${th("SKU", "left")}${th("Planned")}${th("Produced")}${th("Attainment", "left")}${th("Diff")}</tr>${rows}
+          </table></td></tr></table>`;
+    }
+
+    const savedAt = s.savedAt ? new Date(s.savedAt).toLocaleDateString() : "";
+    return `<div style="${font}color:#000000;max-width:720px;">
+      ${emStripe()}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr><td style="padding:12px 0 12px;${font}">
+        <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:${EM.muted};">Balter Brewing</div>
+        <div style="font-size:22px;font-weight:700;">KPI Snapshot &mdash; ${emEsc(s.month || "")}</div></td></tr></table>
+      ${hero}
+      ${sections}
+      <div style="${font}font-size:10px;color:${EM.muted};padding-top:8px;border-top:1px solid ${EM.line};margin-top:6px;">Bars: black marker = target; teal = on/better than target, orange = behind. Trend columns show the last ${months.length} months.${savedAt ? ` Data saved ${savedAt}.` : ""}</div>
+    </div>`;
+  }
+
+  function emailToPlainText(html) {
+    const d = document.createElement("div");
+    d.innerHTML = html;
+    return (d.innerText || d.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  async function copyEmail() {
+    if (!state.snapshot) return;
+    const btn = $("#copyEmailBtn");
+    btn.disabled = true;
+    try {
+      const html = await buildEmailHtml();
+      const text = emailToPlainText(html);
+      let ok = false;
+      try {
+        await navigator.clipboard.write([new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        })]);
+        ok = true;
+      } catch (e) {
+        // Fallback: select a rendered copy and use the legacy copy command.
+        const holder = document.createElement("div");
+        holder.contentEditable = "true";
+        holder.style.cssText = "position:fixed;left:-9999px;top:0;background:#fff;";
+        holder.innerHTML = html;
+        document.body.appendChild(holder);
+        const range = document.createRange();
+        range.selectNodeContents(holder);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        ok = document.execCommand("copy");
+        sel.removeAllRanges();
+        holder.remove();
+      }
+      if (!ok) throw new Error("Your browser blocked copying.");
+      toast(`Email copied — paste it into a Gmail draft. Suggested subject: KPI Snapshot — ${state.snapshot.month}`, "ok");
+    } catch (err) {
+      toast(err.message || "Couldn't copy the email.", "err");
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   /* =========================================================
@@ -1637,6 +1934,7 @@
 
     $("#logoutBtn").addEventListener("click", logout);
     $("#exportBtn").addEventListener("click", exportCsv);
+    $("#copyEmailBtn").addEventListener("click", copyEmail);
     $("#openUploadBtn").addEventListener("click", openUploadModal);
     $("#emptyUploadBtn").addEventListener("click", openUploadModal);
     $("#prodEmptyUploadBtn").addEventListener("click", openUploadModal);
