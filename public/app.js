@@ -1229,8 +1229,8 @@
     }).join("");
     return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;table-layout:fixed;"><tr>${cols}</tr></table>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr>
-        <td style="font-size:10px;color:${EM.muted};padding-top:3px;">${emEsc(fmtKpiValue(points[0].raw, unit, kpiName))} &rarr; ${emEsc(fmtKpiValue(points[points.length - 1].raw, unit, kpiName))}</td>
-        ${target != null ? `<td align="right" style="font-size:10px;color:${EM.muted};padding-top:3px;">target ${emEsc(fmtKpiValue(target, unit, kpiName))}</td>` : ""}
+        <td valign="top" height="26" style="height:26px;font-size:10px;color:${EM.muted};padding-top:3px;">${emEsc(fmtKpiValue(points[0].raw, unit, kpiName))} &rarr; ${emEsc(fmtKpiValue(points[points.length - 1].raw, unit, kpiName))}</td>
+        ${target != null ? `<td valign="top" align="right" style="font-size:10px;color:${EM.muted};padding-top:3px;">target ${emEsc(fmtKpiValue(target, unit, kpiName))}</td>` : ""}
       </tr></table>`;
   }
 
@@ -1269,19 +1269,23 @@
       <div style="font-size:10px;color:${EM.muted};">${emEsc(fmtKpiValue(row.actualYtd, row.unit, row.kpi))} vs LY ${emEsc(fmtKpiValue(ly, row.unit, row.kpi))}</div>`;
   }
 
-  async function emTile(row, months) {
+  async function emTile(row, months, narrow) {
     const g = goodness(KPI_DIRECTION[row.kpi] || "higher", row.varMonth);
     const { points, target } = await emTrendPoints(row.kpi, months);
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;width:100%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;"><tr><td style="padding:9px 11px;font-family:${EM.font};color:#000000;" valign="top">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr>
-        <td valign="top" style="font-size:13px;font-weight:700;line-height:1.3;">${emEsc(row.kpi)} <span style="font-size:10px;font-weight:400;color:${EM.muted};">${emEsc(row.unit || "")}</span></td>
+    // Content only: the border/padding live on the grid cell itself (see
+    // emGrid) so every tile in a row stretches to the tallest one.
+    const header = narrow
+      ? `<div style="height:36px;font-size:13px;font-weight:700;line-height:1.3;">${emEsc(row.kpi)} <span style="font-size:10px;font-weight:400;color:${EM.muted};">${emEsc(row.unit || "")}</span></div>
+      <div style="padding:2px 0 0;">${emChip(fmtKpiDelta(row.varMonth, row.unit, row.kpi), g)}</div>`
+      : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;"><tr>
+        <td valign="top" height="34" style="height:34px;font-size:13px;font-weight:700;line-height:1.3;">${emEsc(row.kpi)} <span style="font-size:10px;font-weight:400;color:${EM.muted};">${emEsc(row.unit || "")}</span></td>
         <td valign="top" align="right" style="padding-left:6px;">${emChip(fmtKpiDelta(row.varMonth, row.unit, row.kpi), g)}</td>
-      </tr></table>
+      </tr></table>`;
+    return `${header}
       ${emPeriod("This month", row.actualMonth, row.budgetMonth, row.unit, row.kpi, g)}
       <div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:${EM.muted};padding:9px 0 3px;">Year to date trend</div>
       ${emTrend(points, target, row.kpi, row.unit)}
-      ${emLastYear(row)}
-    </td></tr></table>`;
+      ${emLastYear(row)}`;
   }
 
   // A consolidated group (Consumer Complaints, Line Efficiency) becomes a
@@ -1306,25 +1310,48 @@
       <td style="font-family:${EM.font};font-size:17px;font-weight:700;padding:18px 0 8px;" valign="middle">${emEsc(title)}</td></tr></table>`;
   }
 
+  // One heading cell (swatch + title), for use inside a multi-column heading row.
+  function emHeadingCell(title, color, colspan, widthPct) {
+    return `<td colspan="${colspan}" width="${widthPct}%" valign="bottom" style="width:${widthPct}%;padding:18px 0 8px;font-family:${EM.font};">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="10" height="10" bgcolor="${color}" style="width:10px;height:10px;background:${color};border:1px solid #000000;font-size:0;line-height:0;">&nbsp;</td>
+        <td style="font-size:17px;font-weight:700;padding-left:8px;">${emEsc(title)}</td></tr></table></td>`;
+  }
+
+  // A row of four tiles where the first belongs to one section and the other
+  // three to the next (e.g. the last Utilities tile beside the Efficiency
+  // tiles), each section keeping its own heading above its tiles.
+  function emMergedRow(first, second, tilesHtml) {
+    const tileTd = (html) => `<td width="23.5%" valign="top" style="width:23.5%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${html}</td>`;
+    const gap = `<td width="2%" style="width:2%;font-size:0;line-height:0;">&nbsp;</td>`;
+    const tbl = (inner) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;">${inner}</table>`;
+    return tbl(`<tr>${emHeadingCell(first.title, first.color, 1, 25.5)}${emHeadingCell(second.title, second.color, 1, 74.5)}</tr>`)
+      + tbl(`<tr>${tilesHtml.map(tileTd).join(gap)}</tr><tr><td colspan="7" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
+  }
+
   // Packs tiles three to a row; a group card takes a full row of its own.
+  // The tile border lives on each cell (with spacer columns/rows for the
+  // gaps) because table cells in a row always stretch to the tallest one —
+  // nested tables with height:100% are not reliably honoured by Gmail.
   function emGrid(cellsHtml) {
     const rows = [];
     let pending = [];
+    const tileTd = (html) => html
+      ? `<td width="32%" valign="top" style="width:32%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${html}</td>`
+      : `<td width="32%" style="width:32%;">&nbsp;</td>`;
+    const gap = `<td width="2%" style="width:2%;font-size:0;line-height:0;">&nbsp;</td>`;
+    const spacerRow = `<tr><td colspan="5" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`;
     const flush = () => {
       if (!pending.length) return;
-      const tds = [];
-      for (let i = 0; i < 3; i++) {
-        tds.push(`<td width="33.3%" valign="top" style="width:33.3%;padding:0 ${i === 2 ? 0 : 5}px 10px ${i === 0 ? 0 : 5}px;">${pending[i] || ""}</td>`);
-      }
-      rows.push(`<tr>${tds.join("")}</tr>`);
+      rows.push(`<tr>${tileTd(pending[0])}${gap}${tileTd(pending[1])}${gap}${tileTd(pending[2])}</tr>${spacerRow}`);
       pending = [];
     };
     cellsHtml.forEach((c) => {
-      if (c.full) { flush(); rows.push(`<tr><td colspan="3" style="padding:0 0 10px;">${c.html}</td></tr>`); }
+      if (c.full) { flush(); rows.push(`<tr><td colspan="5" style="padding:0;">${c.html}</td></tr>${spacerRow}`); }
       else { pending.push(c.html); if (pending.length === 3) flush(); }
     });
     flush();
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;table-layout:fixed;">${rows.join("")}</table>`;
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;">${rows.join("")}</table>`;
   }
 
   function emHero(title, bigText, subText, stats) {
@@ -1370,13 +1397,39 @@
 
     const catColors = { Quality: EM.purple, Utilities: EM.sky, Efficiency: EM.orange };
     let sections = "";
+    // Build every category's cells first, so a trailing lone tile can share
+    // a row with the next category's tiles.
+    const built = {};
     for (const type of TYPE_ORDER) {
       const cards = getCategoryCards(type);
       if (!cards.length) continue;
-      const cells = await Promise.all(cards.map(async (c) => c.kind === "group"
+      built[type] = await Promise.all(cards.map(async (c) => c.kind === "group"
         ? { full: true, html: emGroup(c.title, c.variantRows) }
-        : { full: false, html: await emTile(c.row, months) }));
-      sections += emSectionHeader(type, catColors[type]) + emGrid(cells);
+        : { full: false, row: c.row, html: await emTile(c.row, months) }));
+    }
+    // Utilities' last tile (when it would otherwise sit alone on its row)
+    // goes beside Efficiency's first three tiles, if those lead Efficiency.
+    let mergedRow = "";
+    const util = built.Utilities, eff = built.Efficiency;
+    if (util && eff) {
+      const lastFull = util.map((c) => c.full).lastIndexOf(true);
+      const trailing = util.length - 1 - lastFull;
+      const effLead = eff.findIndex((c) => c.full);
+      const effLeadCount = effLead === -1 ? eff.length : effLead;
+      if (trailing % 3 === 1 && effLeadCount === 3) {
+        const four = [util.pop(), ...eff.splice(0, 3)];
+        const narrowHtml = await Promise.all(four.map((c) => emTile(c.row, months, true)));
+        mergedRow = emMergedRow({ title: "Utilities", color: catColors.Utilities }, { title: "Efficiency", color: catColors.Efficiency }, narrowHtml);
+      }
+    }
+    for (const type of TYPE_ORDER) {
+      if (!built[type]) continue;
+      if (type === "Efficiency" && mergedRow) {
+        sections += mergedRow + (built[type].length ? emGrid(built[type]) : "");
+        continue;
+      }
+      if (built[type].length) sections += emSectionHeader(type, catColors[type]) + emGrid(built[type]);
+      else if (type === "Utilities" && mergedRow) continue;
     }
 
     // Production plan
