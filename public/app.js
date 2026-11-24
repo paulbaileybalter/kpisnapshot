@@ -1321,12 +1321,15 @@
   // A row of four tiles where the first belongs to one section and the other
   // three to the next (e.g. the last Utilities tile beside the Efficiency
   // tiles), each section keeping its own heading above its tiles.
-  function emMergedRow(first, second, tilesHtml) {
+  function emMergedRow(first, second, firstTiles, secondTiles) {
+    const tilesHtml = firstTiles.concat(secondTiles);
     const tileTd = (html) => `<td width="23.5%" valign="top" style="width:23.5%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${html}</td>`;
     const gap = `<td width="2%" style="width:2%;font-size:0;line-height:0;">&nbsp;</td>`;
     const tbl = (inner) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;">${inner}</table>`;
-    return tbl(`<tr>${emHeadingCell(first.title, first.color, 1, 25.5)}${emHeadingCell(second.title, second.color, 1, 74.5)}</tr>`)
-      + tbl(`<tr>${tilesHtml.map(tileTd).join(gap)}</tr><tr><td colspan="7" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
+    const firstW = firstTiles.length * 25.5;
+    const filler = tilesHtml.length < 4 ? `<td style="font-size:0;line-height:0;">&nbsp;</td>` : "";
+    return tbl(`<tr>${emHeadingCell(first.title, first.color, 1, firstW)}${emHeadingCell(second.title, second.color, 1, 100 - firstW)}</tr>`)
+      + tbl(`<tr>${tilesHtml.map(tileTd).join(gap)}${filler}</tr><tr><td colspan="8" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
   }
 
   // Packs tiles three to a row; a group card takes a full row of its own.
@@ -1407,8 +1410,8 @@
         ? { full: true, html: emGroup(c.title, c.variantRows) }
         : { full: false, row: c.row, html: await emTile(c.row, months) }));
     }
-    // Utilities' last tile (when it would otherwise sit alone on its row)
-    // goes beside Efficiency's first three tiles, if those lead Efficiency.
+    // Utilities' leftover tile(s) on a partly-filled last row go beside
+    // Efficiency's leading tiles, filling that row up to four across.
     let mergedRow = "";
     const util = built.Utilities, eff = built.Efficiency;
     if (util && eff) {
@@ -1416,10 +1419,15 @@
       const trailing = util.length - 1 - lastFull;
       const effLead = eff.findIndex((c) => c.full);
       const effLeadCount = effLead === -1 ? eff.length : effLead;
-      if (trailing % 3 === 1 && effLeadCount === 3) {
-        const four = [util.pop(), ...eff.splice(0, 3)];
-        const narrowHtml = await Promise.all(four.map((c) => emTile(c.row, months, true)));
-        mergedRow = emMergedRow({ title: "Utilities", color: catColors.Utilities }, { title: "Efficiency", color: catColors.Efficiency }, narrowHtml);
+      const leftover = trailing % 3;
+      if (leftover > 0 && effLeadCount > 0) {
+        const utilTail = util.splice(util.length - leftover, leftover);
+        const effHead = eff.splice(0, Math.min(effLeadCount, 4 - leftover));
+        const [uHtml, eHtml] = await Promise.all([
+          Promise.all(utilTail.map((c) => emTile(c.row, months, true))),
+          Promise.all(effHead.map((c) => emTile(c.row, months, true))),
+        ]);
+        mergedRow = emMergedRow({ title: "Utilities", color: catColors.Utilities }, { title: "Efficiency", color: catColors.Efficiency }, uHtml, eHtml);
       }
     }
     for (const type of TYPE_ORDER) {
