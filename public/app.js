@@ -1339,7 +1339,7 @@
   // The tile border lives on each cell (with spacer columns/rows for the
   // gaps) because table cells in a row always stretch to the tallest one —
   // nested tables with height:100% are not reliably honoured by Gmail.
-  function emGrid(cellsHtml) {
+  function emGrid(cellsHtml, startAfterFull) {
     const rows = [];
     let pending = [];
     const tileTd = (html) => html
@@ -1349,7 +1349,7 @@
     const spacerRow = `<tr><td colspan="5" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`;
     // A tile left alone on the row right after a full-width card (e.g. Cost
     // of Quality under Consumer Complaints) takes the full width as well.
-    let afterFull = false;
+    let afterFull = !!startAfterFull;
     const flush = () => {
       if (!pending.length) return;
       if (pending.length === 1 && afterFull) {
@@ -1444,7 +1444,7 @@
     for (const type of TYPE_ORDER) {
       if (!built[type]) continue;
       if (type === "Efficiency" && mergedRow) {
-        sections += mergedRow + (built[type].length ? emGrid(built[type]) : "");
+        sections += mergedRow + (built[type].length ? emGrid(built[type], true) : "");
         continue;
       }
       if (built[type].length) sections += emSectionHeader(type, catColors[type]) + emGrid(built[type]);
