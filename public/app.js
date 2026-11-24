@@ -1335,6 +1335,16 @@
       + tbl(`<tr>${cells.join(gap)}</tr><tr><td colspan="5" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
   }
 
+  // Two tiles sharing a row at half width each, with their own headings
+  // (e.g. Cost of Quality from Quality beside Plan Attainment from Efficiency).
+  function emSharedRow(left, right) {
+    const tileTd = (html) => `<td width="48%" valign="top" style="width:48%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${html}</td>`;
+    const gap = `<td width="4%" style="width:4%;font-size:0;line-height:0;">&nbsp;</td>`;
+    const tbl = (inner) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;">${inner}</table>`;
+    return tbl(`<tr>${emHeadingCell(left.title, left.color, 1, 52)}${emHeadingCell(right.title, right.color, 1, 48)}</tr>`)
+      + tbl(`<tr>${tileTd(left.html)}${gap}${tileTd(right.html)}</tr><tr><td colspan="3" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
+  }
+
   // Packs tiles three to a row; a group card takes a full row of its own.
   // The tile border lives on each cell (with spacer columns/rows for the
   // gaps) because table cells in a row always stretch to the tallest one —
@@ -1421,6 +1431,18 @@
         ? { full: true, html: emGroup(c.title, c.variantRows) }
         : { full: false, row: c.row, html: await emTile(c.row, months) }));
     }
+    // Cost of Quality (last Quality tile) and Plan Attainment (an Efficiency
+    // tile) share one half-and-half row placed right after Quality's cards.
+    let sharedRow = "";
+    if (built.Quality && built.Efficiency) {
+      const qi = built.Quality.findIndex((c) => !c.full && c.row && c.row.kpi === "Cost of Quality");
+      const ei = built.Efficiency.findIndex((c) => !c.full && c.row && c.row.kpi === "Plan Attainment");
+      if (qi !== -1 && ei !== -1) {
+        const q = built.Quality.splice(qi, 1)[0];
+        const e = built.Efficiency.splice(ei, 1)[0];
+        sharedRow = emSharedRow({ title: "Quality", color: catColors.Quality, html: q.html }, { title: "Efficiency", color: catColors.Efficiency, html: e.html });
+      }
+    }
     // Utilities' leftover tile(s) on a partly-filled last row go beside
     // Efficiency's leading tiles, filling that row up to three across (same widths as every other row).
     let mergedRow = "";
@@ -1448,6 +1470,7 @@
         continue;
       }
       if (built[type].length) sections += emSectionHeader(type, catColors[type]) + emGrid(built[type]);
+      if (type === "Quality" && sharedRow) sections += sharedRow;
       else if (type === "Utilities" && mergedRow) continue;
     }
 
