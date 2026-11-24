@@ -1323,13 +1323,16 @@
   // tiles), each section keeping its own heading above its tiles.
   function emMergedRow(first, second, firstTiles, secondTiles) {
     const tilesHtml = firstTiles.concat(secondTiles);
-    const tileTd = (html) => `<td width="23.5%" valign="top" style="width:23.5%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${html}</td>`;
+    // Same 32% tile / 2% gap columns as emGrid, so the widths match the rows above and below.
+    const tileTd = (html) => `<td width="32%" valign="top" style="width:32%;border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${html}</td>`;
     const gap = `<td width="2%" style="width:2%;font-size:0;line-height:0;">&nbsp;</td>`;
+    const blank = `<td width="32%" style="width:32%;">&nbsp;</td>`;
     const tbl = (inner) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:0;width:100%;table-layout:fixed;">${inner}</table>`;
-    const firstW = firstTiles.length * 25.5;
-    const filler = tilesHtml.length < 4 ? `<td style="font-size:0;line-height:0;">&nbsp;</td>` : "";
+    const firstW = firstTiles.length * 34;
+    const cells = tilesHtml.map(tileTd);
+    while (cells.length < 3) cells.push(blank);
     return tbl(`<tr>${emHeadingCell(first.title, first.color, 1, firstW)}${emHeadingCell(second.title, second.color, 1, 100 - firstW)}</tr>`)
-      + tbl(`<tr>${tilesHtml.map(tileTd).join(gap)}${filler}</tr><tr><td colspan="8" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
+      + tbl(`<tr>${cells.join(gap)}</tr><tr><td colspan="5" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`);
   }
 
   // Packs tiles three to a row; a group card takes a full row of its own.
@@ -1344,13 +1347,21 @@
       : `<td width="32%" style="width:32%;">&nbsp;</td>`;
     const gap = `<td width="2%" style="width:2%;font-size:0;line-height:0;">&nbsp;</td>`;
     const spacerRow = `<tr><td colspan="5" height="10" style="height:10px;font-size:0;line-height:0;">&nbsp;</td></tr>`;
+    // A tile left alone on the row right after a full-width card (e.g. Cost
+    // of Quality under Consumer Complaints) takes the full width as well.
+    let afterFull = false;
     const flush = () => {
       if (!pending.length) return;
-      rows.push(`<tr>${tileTd(pending[0])}${gap}${tileTd(pending[1])}${gap}${tileTd(pending[2])}</tr>${spacerRow}`);
+      if (pending.length === 1 && afterFull) {
+        rows.push(`<tr><td colspan="5" valign="top" style="border:1.5px solid #000000;border-radius:10px;background:#FFFFFF;padding:9px 11px;font-family:${EM.font};color:#000000;">${pending[0]}</td></tr>${spacerRow}`);
+      } else {
+        rows.push(`<tr>${tileTd(pending[0])}${gap}${tileTd(pending[1])}${gap}${tileTd(pending[2])}</tr>${spacerRow}`);
+      }
+      afterFull = false;
       pending = [];
     };
     cellsHtml.forEach((c) => {
-      if (c.full) { flush(); rows.push(`<tr><td colspan="5" style="padding:0;">${c.html}</td></tr>${spacerRow}`); }
+      if (c.full) { flush(); rows.push(`<tr><td colspan="5" style="padding:0;">${c.html}</td></tr>${spacerRow}`); afterFull = true; }
       else { pending.push(c.html); if (pending.length === 3) flush(); }
     });
     flush();
@@ -1411,7 +1422,7 @@
         : { full: false, row: c.row, html: await emTile(c.row, months) }));
     }
     // Utilities' leftover tile(s) on a partly-filled last row go beside
-    // Efficiency's leading tiles, filling that row up to four across.
+    // Efficiency's leading tiles, filling that row up to three across (same widths as every other row).
     let mergedRow = "";
     const util = built.Utilities, eff = built.Efficiency;
     if (util && eff) {
@@ -1422,7 +1433,7 @@
       const leftover = trailing % 3;
       if (leftover > 0 && effLeadCount > 0) {
         const utilTail = util.splice(util.length - leftover, leftover);
-        const effHead = eff.splice(0, Math.min(effLeadCount, 4 - leftover));
+        const effHead = eff.splice(0, Math.min(effLeadCount, 3 - leftover));
         const [uHtml, eHtml] = await Promise.all([
           Promise.all(utilTail.map((c) => emTile(c.row, months, true))),
           Promise.all(effHead.map((c) => emTile(c.row, months, true))),
